@@ -86,13 +86,18 @@ class CarlaModel(Model):
 
         # Setup metrics layer
         with tf.name_scope("carla_metrics"):
+           # metrics_in = slim.fully_connected(
+            #    metrics_in,
+             #   24,
+              #  weights_initializer=xavier_initializer(),
+               # activation_fn=activation,
+                #scope="metrics_out")
             metrics_in = slim.fully_connected(
                 metrics_in,
                 64,
                 weights_initializer=xavier_initializer(),
                 activation_fn=activation,
-                scope="metrics_out")
-
+                scope="metrics_out")  
         print("Shape of vision out is", vision_in.shape)
         print("Shape of metric out is", metrics_in.shape)
 
