@@ -92,7 +92,7 @@ ENV_CONFIG = {
     "x_res": 120,  # cv2.resize()
     "y_res": 120,  # cv2.resize()
     "server_map": "/Game/Maps/Town02",
-    "scenarios": [LANE_KEEP],#TOWN2_NAVIGATION, # TOWN2_ONE_CURVE,  # [DEFAULT_SCENARIO], # TOWN2_ONE_CURVE, #    TOWN2_ALL, # [LANE_KEEP]
+    "scenarios": TOWN2_NAVIGATION, # TOWN2_ONE_CURVE,  # [DEFAULT_SCENARIO], # TOWN2_ONE_CURVE, #    TOWN2_ALL, # [LANE_KEEP]
     "use_depth_camera": False,  # use depth instead of rgb.
     "discrete_actions": False,
     "squash_action_logits": False,
