@@ -92,13 +92,19 @@ class CarlaModel(Model):
                 weights_initializer=xavier_initializer(),
                 activation_fn=activation,
                 scope="metrics_out")
-
+           # metrics_in = slim.fully_connected(
+            #    metrics_in,
+             #   64,
+              #  weights_initializer=xavier_initializer(),
+               # activation_fn=activation,
+                #scope="metrics_out")
+                
         print("Shape of vision out is", vision_in.shape)
         print("Shape of metric out is", metrics_in.shape)
 
         # Combine the metrics and vision inputs
         with tf.name_scope("carla_out"):
-            i = 1
+          #  i = 1
             last_layer = tf.concat([vision_in, metrics_in], axis=1)
             print("Shape of concatenated out is", last_layer.shape)
             for size in hiddens:
@@ -108,7 +114,7 @@ class CarlaModel(Model):
                     weights_initializer=xavier_initializer(),
                     activation_fn=activation,
                     scope="fc{}".format(i))
-                i += 1
+           #     i += 1
             output = slim.fully_connected(
                 last_layer,
                 num_outputs,
