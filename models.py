@@ -31,13 +31,14 @@ class CarlaModel(Model):
     #        [512, [15, 15], 1],
      #   ])
         convs = options.get("structure", [
-            [32, [3, 3], 1],
-            [32, [3, 3], 1],
+            [24, [4, 4], 3],
+            [32, [4, 4], 2],
+            [64, [3, 3], 2],
             [64, [3, 3], 1],
-            [512, [15, 15], 1],
+            [1024, [8, 8], 1],
         ])
 
-        hiddens = options.get("fcnet_hiddens", [800, 64])
+        hiddens = options.get("fcnet_hiddens", [700, 100])
         fcnet_activation = options.get("fcnet_activation", "tanh")
         if fcnet_activation == "tanh":
             activation = tf.nn.tanh
@@ -46,6 +47,7 @@ class CarlaModel(Model):
 
         # Sanity checks
         image_size = np.product(image_shape)
+        print(image_size)
         expected_shape = [image_size + 5 + 2]
         assert inputs.shape.as_list()[1:] == expected_shape, \
             (inputs.shape.as_list()[1:], expected_shape)
@@ -69,11 +71,11 @@ class CarlaModel(Model):
                     kernel,
                     stride,
                     scope="conv{}".format(i))
-                vision_in = slim.max_pool2d(
-                    vision_in,
-                    kernel_size=[2, 2], 
-                    padding='SAME',
-                    scope="maxpool{}".format(i))
+               # vision_in = slim.max_pool2d(
+                #    vision_in,
+                 #   kernel_size=[2, 2], 
+                 #   padding='SAME',
+                 #   scope="maxpool{}".format(i))
             out_size, kernel, stride = convs[-1]
             vision_in = slim.conv2d(
                 vision_in,
@@ -82,6 +84,7 @@ class CarlaModel(Model):
                 stride,
                 padding="VALID",
                 scope="conv_out")
+           # print(vision_in)
             vision_in = tf.squeeze(vision_in, [1, 2])
 
         # Setup metrics layer
@@ -94,7 +97,7 @@ class CarlaModel(Model):
                 #scope="metrics_out")
             metrics_in = slim.fully_connected(
                 metrics_in,
-                64,
+                90,
                 weights_initializer=xavier_initializer(),
                 activation_fn=activation,
                 scope="metrics_out")  

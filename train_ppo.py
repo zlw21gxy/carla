@@ -13,12 +13,12 @@ env_config = ENV_CONFIG.copy()
 # update config
 env_config.update({
     "verbose": False,
-    "x_res": 120,
-    "y_res": 120,
+    "x_res": 96,
+    "y_res": 96,
     "use_depth_camera": False,
     "discrete_actions": False,
     "server_map": "/Game/Maps/Town02",
-    "scenarios": TOWN2_NAVIGATION, # TOWN2_ONE_CURVE,
+    "scenarios": TOWN2_ONE_CURVE,
 })
 register_carla_model()
 
@@ -33,7 +33,7 @@ run_experiments({
                 "custom_model": "carla",   # defined in model
                 "custom_options": {
                     "image_shape": [
-                        env_config["x_res"], env_config["y_res"], 6
+                        env_config["x_res"], env_config["y_res"], 8
                     ],
                 }#,
               #  "conv_filters": [

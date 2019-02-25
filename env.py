@@ -88,11 +88,11 @@ ENV_CONFIG = {
     "early_terminate_on_collision": True,
     "reward_function": "custom",
     "render_x_res": 300,
-    "render_y_res": 100,
+    "render_y_res": 96,
     "x_res": 96,  # cv2.resize()
     "y_res": 96,  # cv2.resize()
     "server_map": "/Game/Maps/Town02",
-    "scenarios": [DEFAULT_SCENARIO], # TOWN2_NAVIGATION, # TOWN2_ONE_CURVE, # [LANE_KEEP]
+    "scenarios": TOWN2_ONE_CURVE, # [LANE_KEEP]
     "use_depth_camera": False,  # use depth instead of rgb.
     "discrete_actions": False,
     "squash_action_logits": False,
@@ -204,7 +204,7 @@ class CarlaEnv(gym.Env):
         self.server_process = subprocess.Popen(
             [
                 SERVER_BINARY, self.config["server_map"], "-windowed",
-                "-ResX=800", "-ResY=600", "-carla-server", "-benchmark -fps=10",   # "-benchmark -fps=10": to run the simulation at a fixed time-step of 0.1 seconds
+                "-ResX=800", "-ResY=600", "-carla-server", "-benchmark -fps=10", #: to run the simulation at a fixed time-step of 0.1 seconds
                 "-carla-world-port={}".format(self.server_port)
             ],
             preexec_fn=os.setsid,
@@ -291,8 +291,7 @@ class CarlaEnv(gym.Env):
                                    self.config["render_y_res"])
             # camera1.set_position(30, 0, 170)
             camera1.set_position(0.5, 0.0, 1.6)
-            # camera1.set_rotation(0.0, 0.0, 0.0)
-
+            camera1.set(FOV=120)
             settings.add_sensor(camera1)
 
         camera2 = Camera("CameraRGB")
@@ -345,21 +344,21 @@ class CarlaEnv(gym.Env):
         if self.config["encode_measurement"]:
            # image = np.concatenate([image, (np.zeros((image.shape[0], image.shape[1], 1))+py_measurements["forward_speed"]-15)/15], axis=2)
            # image = np.concatenate([image, (np.zeros((image.shape[0], image.shape[1], 1))+COMMAND_ORDINAL[py_measurements["next_command"]]-2)/2], axis=2)
-            image = np.concatenate([prev_image[:, :, 0:2], image], axis=2)           
+          #  image_2 = np.concatenate([prev_image[:, :, 0:2], image], axis=2)           
             feature_map = np.zeros([4, 4])
-            feature_map[1, :] = py_measurements["forward_speed"]
-            feature_map[2, :] = COMMAND_ORDINAL[py_measurements["next_command"]]
+            feature_map[1, :] = (py_measurements["forward_speed"]-15)/15
+            feature_map[2, :] = (COMMAND_ORDINAL[py_measurements["next_command"]]-2)/2
             feature_map[0, 0] = py_measurements["x_orient"]
             feature_map[0, 1] = py_measurements["y_orient"]
-            feature_map[0, 2] = py_measurements["distance_to_goal"]
-            feature_map[0, 1] = py_measurements["distance_to_goal_euclidean"]
-            feature_map[3 ,0] = py_measurements["x"]
-            feature_map[3, 1] = py_measurements["y"]
-            feature_map[3, 2] = py_measurements["end_coord"][0]
-            feature_map[3, 3] = py_measurements["end_coord"][1]
+            feature_map[0, 2] = (py_measurements["distance_to_goal"]-170)/170
+            feature_map[0, 1] = (py_measurements["distance_to_goal_euclidean"]-170)/170
+            feature_map[3 ,0] = (py_measurements["x"]-50)/150
+            feature_map[3, 1] = (py_measurements["y"]-50)/150
+            feature_map[3, 2] = (py_measurements["end_coord"][0]-150)/150
+            feature_map[3, 3] = (py_measurements["end_coord"][1]-150)/150
             feature_map = np.tile(feature_map, (24, 24))
-            image = np.concatenate([image, feature_map[:, :, np.newaxis]], axis=2)
-              
+            image = np.concatenate([prev_image[:, :, 0:3], image, feature_map[:, :, np.newaxis]], axis=2)
+            # print("image shape after encoding", image.shape)
 
 
         obs = (image, COMMAND_ORDINAL[py_measurements["next_command"]], [
@@ -550,8 +549,8 @@ class CarlaEnv(gym.Env):
             # data = (image - 0.5) * 2
             data = image.reshape(self.config["render_y_res"],
                                 self.config["render_x_res"], -1)
-            data[:, :, 3] = (data[:, :, 0] - 0.5) * 2
-            data[:, :, 0:2] = (data[:, :, 0:2].astype(np.float32) - 128) / 128
+            #data[:, :, 4] = (data[:, :, 0] - 0.5) * 2
+            #data[:, :, 0:3] = (data[:, :, 0:2].astype(np.float32) - 128) / 128
             data = cv2.resize(
                 data, (self.config["x_res"], self.config["y_res"]),
                 interpolation=cv2.INTER_AREA)
@@ -578,8 +577,10 @@ class CarlaEnv(gym.Env):
         observation = None
         if self.config["encode_measurement"]:
             # print(sensor_data["CameraRGB"].data.shape, sensor_data["CameraDepth"].data.shape)
-            observation = np.concatenate((sensor_data["CameraRGB"].data,
-                                          sensor_data["CameraDepth"].data[:, :, np.newaxis]), axis=2)
+            observation = np.concatenate(((sensor_data["CameraRGB"].data.astype(np.float32)-128)/128,
+                                         (sensor_data["CameraDepth"].data[:, :, np.newaxis] - 0.5)*0.5), axis=2)
+
+            # print("observation_shape", observation.shape)
         else:
             if self.config["use_depth_camera"]:
                 camera_name = "CameraDepth"
@@ -811,7 +812,8 @@ def collided_done(py_measurements):
 if __name__ == "__main__":
     for _ in range(2):
         env = CarlaEnv()
-        obs = env.reset()        
+        obs = env.reset()      
+        print(obs[0].shape) 
         # start = time.time
         start = time.time()
         done = False
@@ -824,7 +826,8 @@ if __name__ == "__main__":
             else:
                 obs, reward, done, info = env.step([1, 0])
             total_reward += reward
-          #  print(obs[0].shape)  
+            # print(info["end_coord"])
+              
           #  print(done)
            # print(i, "rew", reward, "total", total_reward, "done", done)
         print("{:.2f} fps".format(float(i / (time.time() - start))))
