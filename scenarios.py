@@ -22,8 +22,8 @@ DEFAULT_SCENARIO = build_scenario(
     city="Town02",
     start=36,
     end=40,
-    vehicles=20,
-    pedestrians=40,
+    vehicles=0,
+    pedestrians=0,
     max_steps=500,
     weathers=[0])
 

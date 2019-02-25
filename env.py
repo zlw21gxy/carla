@@ -87,12 +87,12 @@ ENV_CONFIG = {
     "framestack": 1,  # note: only [1, 2] currently supported
     "early_terminate_on_collision": True,
     "reward_function": "custom",
-    "render_x_res": 2000,
-    "render_y_res": 600,
-    "x_res": 120,  # cv2.resize()
-    "y_res": 120,  # cv2.resize()
+    "render_x_res": 300,
+    "render_y_res": 100,
+    "x_res": 96,  # cv2.resize()
+    "y_res": 96,  # cv2.resize()
     "server_map": "/Game/Maps/Town02",
-    "scenarios": TOWN2_NAVIGATION, # TOWN2_ONE_CURVE,  # [DEFAULT_SCENARIO], # TOWN2_ONE_CURVE, #    TOWN2_ALL, # [LANE_KEEP]
+    "scenarios": [DEFAULT_SCENARIO], # TOWN2_NAVIGATION, # TOWN2_ONE_CURVE, # [LANE_KEEP]
     "use_depth_camera": False,  # use depth instead of rgb.
     "discrete_actions": False,
     "squash_action_logits": False,
@@ -165,7 +165,7 @@ class CarlaEnv(gym.Env):
             image_space = Box(
                 0,
                 255,
-                shape=(config["y_res"], config["x_res"], 6),
+                shape=(config["y_res"], config["x_res"], 8),
                 dtype=np.float32)
 
         # The Observation Space
@@ -298,6 +298,7 @@ class CarlaEnv(gym.Env):
         camera2 = Camera("CameraRGB")
         camera2.set_image_size(self.config["render_x_res"],
                                self.config["render_y_res"])
+        camera2.set(FOV=120)
         # camera2.set_position(30, 0, 170)
         # camera2.set_position(0.3, 0.0, 1.3)
         # camera2.set_position(2.0, 0.0, 1.4)
@@ -342,10 +343,24 @@ class CarlaEnv(gym.Env):
         if self.config["framestack"] == 2:
             image = np.concatenate([prev_image, image], axis=2)
         if self.config["encode_measurement"]:
-            image = np.concatenate([image, (np.zeros((image.shape[0], image.shape[1], 1))+py_measurements["forward_speed"]-15)/15],
-                                   axis=2)
-            image = np.concatenate([image, (np.zeros((image.shape[0], image.shape[1], 1))+COMMAND_ORDINAL[py_measurements["next_command"]]-2)/2],
-                                   axis=2)
+           # image = np.concatenate([image, (np.zeros((image.shape[0], image.shape[1], 1))+py_measurements["forward_speed"]-15)/15], axis=2)
+           # image = np.concatenate([image, (np.zeros((image.shape[0], image.shape[1], 1))+COMMAND_ORDINAL[py_measurements["next_command"]]-2)/2], axis=2)
+            image = np.concatenate([prev_image[:, :, 0:2], image], axis=2)           
+            feature_map = np.zeros([4, 4])
+            feature_map[1, :] = py_measurements["forward_speed"]
+            feature_map[2, :] = COMMAND_ORDINAL[py_measurements["next_command"]]
+            feature_map[0, 0] = py_measurements["x_orient"]
+            feature_map[0, 1] = py_measurements["y_orient"]
+            feature_map[0, 2] = py_measurements["distance_to_goal"]
+            feature_map[0, 1] = py_measurements["distance_to_goal_euclidean"]
+            feature_map[3 ,0] = py_measurements["x"]
+            feature_map[3, 1] = py_measurements["y"]
+            feature_map[3, 2] = py_measurements["end_coord"][0]
+            feature_map[3, 3] = py_measurements["end_coord"][1]
+            feature_map = np.tile(feature_map, (24, 24))
+            image = np.concatenate([image, feature_map[:, :, np.newaxis]], axis=2)
+              
+
 
         obs = (image, COMMAND_ORDINAL[py_measurements["next_command"]], [
             py_measurements["forward_speed"],
@@ -564,8 +579,7 @@ class CarlaEnv(gym.Env):
         if self.config["encode_measurement"]:
             # print(sensor_data["CameraRGB"].data.shape, sensor_data["CameraDepth"].data.shape)
             observation = np.concatenate((sensor_data["CameraRGB"].data,
-                                          sensor_data["CameraDepth"].data[:, :, np.newaxis]),
-                                         axis=2)
+                                          sensor_data["CameraDepth"].data[:, :, np.newaxis]), axis=2)
         else:
             if self.config["use_depth_camera"]:
                 camera_name = "CameraDepth"
@@ -698,11 +712,11 @@ def compute_reward_custom(env, prev, current):
         print("Cur dist {}, prev dist {}".format(cur_dist, prev_dist))
 
     # Distance travelled toward the goal in m
-    reward += np.clip(prev_dist - cur_dist, -12.0, 12.0)
+    reward += 0.5 * np.clip(prev_dist - cur_dist, -12.0, 12.0)
 
     # Speed reward, up 30.0 (km/h)
     reward += np.clip(current["forward_speed"], 0.0, 30.0) / 10
-    if current["forward_speed"]>40:
+    if current["forward_speed"] > 40:
         reward -= (current["forward_speed"] - 40)/12 
     # New collision damage
     new_damage = (
@@ -715,14 +729,15 @@ def compute_reward_custom(env, prev, current):
         reward -= 100.0
 
     # Sidewalk intersection
-    reward -= 20 * current["intersection_offroad"]    # [0, 1]
-
+    reward -= 20 * int(current["intersection_offroad"] > 0.001)   # [0, 1]
+    # print(current["intersection_offroad"])
     # Opposite lane intersection
     reward -= 4 * current["intersection_otherlane"]  # [0, 1]
     # print(current["intersection_offroad"], current["intersection_otherlane"])
     # Reached goal
     if current["next_command"] == "REACH_GOAL":
         reward += 200.0
+        print('bro, you reach the goal, well done!!!')
 
     return reward
 
@@ -809,6 +824,7 @@ if __name__ == "__main__":
             else:
                 obs, reward, done, info = env.step([1, 0])
             total_reward += reward
-            print(reward, total_reward)  
+          #  print(obs[0].shape)  
+          #  print(done)
            # print(i, "rew", reward, "total", total_reward, "done", done)
         print("{:.2f} fps".format(float(i / (time.time() - start))))
