@@ -341,9 +341,6 @@ class CarlaEnv(gym.Env):
         if self.config["framestack"] == 2:
             image = np.concatenate([prev_image, image], axis=2)
         if self.config["encode_measurement"]:
-           # image = np.concatenate([image, (np.zeros((image.shape[0], image.shape[1], 1))+py_measurements["forward_speed"]-15)/15], axis=2)
-           # image = np.concatenate([image, (np.zeros((image.shape[0], image.shape[1], 1))+COMMAND_ORDINAL[py_measurements["next_command"]]-2)/2], axis=2)
-          #  image_2 = np.concatenate([prev_image[:, :, 0:2], image], axis=2)           
             feature_map = np.zeros([4, 4])
             feature_map[1, :] = (py_measurements["forward_speed"]-15)/15
             feature_map[2, :] = (COMMAND_ORDINAL[py_measurements["next_command"]]-2)/2
@@ -368,26 +365,7 @@ class CarlaEnv(gym.Env):
         # print('distance to goal', py_measurements["distance_to_goal"])
         # print("speed", py_measurements["forward_speed"])
         return obs
-
-    # def encode_obs(self, image, py_measurements):
-    #     assert self.config["framestack"] in [1, 2]
-    #     prev_image = self.prev_image
-    #     self.prev_image = image
-    #     if prev_image is None:
-    #         prev_image = image
-    #     if self.config["framestack"] == 2:
-    #         # image = np.concatenate([prev_image, image], axis=2)
-    #         '''this works when use depth camera and frame 2'''
-    #         image = np.concatenate([image, np.zeros_like(image)+py_measurements["forward_speed"]/30], axis=2)
-    #     # obs = (image, COMMAND_ORDINAL[py_measurements["next_command"]], [
-    #     #     py_measurements["forward_speed"],
-    #     #     py_measurements["distance_to_goal"]
-    #     # ])
-    #     obs = image    # can we encode speed into imagine
-    #     self.last_obs = obs
-    #     return obs
-
-##############TODO:example of py_measurement
+    # TODO:example of py_measurement
     # {'episode_id': '2019-02-22_11-26-36_990083',
     #  'step': 0,
     #  'x': 71.53003692626953,
