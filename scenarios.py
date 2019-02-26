@@ -110,12 +110,12 @@ TOWN2_STRAIGHT_DYNAMIC = [
 ]
 
 TOWN2_ONE_CURVE = [
-    build_scenario("Town02", start, end, 10, 20, 900, [0])
+    build_scenario("Town02", start, end, 10, 20, 1000, [0])
     for (start, end) in POSES_TOWN2_ONE_CURVE
 ]
 
 TOWN2_NAVIGATION = [
-<<<<<<< HEAD
+
     build_scenario("Town02", start, end, 0, 0, 1200, [0])
     for (start, end) in POSES_TOWN2_NAV
 ]

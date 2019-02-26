@@ -39,14 +39,9 @@ run_experiments({
                     "image_shape": [
                         env_config["x_res"], env_config["y_res"], 8
                     ],
-                }#,
-              #  "conv_filters": [
-             #       [32, [8, 8], 4],
-            #        [64, [4, 4], 2],
-           #         [512, [10, 10], 1],
-          #      ],
+                }
             },
-            "num_workers": 3,
+            "num_workers": 10,
             "train_batch_size": 2400,
             "sample_batch_size": 120,
             "lambda": 0.95,

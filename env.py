@@ -38,14 +38,14 @@ if CARLA_OUT_PATH and not os.path.exists(CARLA_OUT_PATH):
 
 # Set this to the path of your Carla binary
 SERVER_BINARY = os.environ.get("CARLA_SERVER",
-                               os.path.expanduser("~/Documents/carla/CarlaUE4.sh"))
+                               os.path.expanduser("/data/carla/CarlaUE4.sh"))
 
 assert os.path.exists(SERVER_BINARY)
 if "CARLA_PY_PATH" in os.environ:
     sys.path.append(os.path.expanduser(os.environ["CARLA_PY_PATH"]))
 else:
     # TODO(ekl) switch this to the binary path once the planner is in master
-    sys.path.append(os.path.expanduser("~/Documents/carla/PythonClient/"))
+    sys.path.append(os.path.expanduser("/data/carla/PythonClient/"))
 
 try:
     from carla.client import CarlaClient
@@ -163,8 +163,8 @@ class CarlaEnv(gym.Env):
                 shape=(config["y_res"], config["x_res"],
                        3 * config["framestack"]),
                 dtype=np.uint8)
-        # encode_measure ---> rgb + depth + current_speed + next_commend
-        # 3 + 1 + 1 + 1 = 6
+        # encode_measure ---> rgb + depth + pre_rgb + measurement_encode
+        # 3 + 1 + 3 + 1 = 8
         if config["encode_measurement"]:
             image_space = Box(
                 0,
