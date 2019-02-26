@@ -1,0 +1,13 @@
+1. carla path (different machine have different folder)
+2. scenarios can be settle in env.py and train_ppo.py 
+3. the final scenarios we use is determined by the setting in train_ppo.py so be careful
+4. the weather in scenarios.py is determined for now
+5. TOWN2_ONE_CURVE have pedestrains and vehicles
+6. we need add traffic signal in obsercation
+7. log_imagine better be False when training
+8. be carful of carla version
+9. version==0.7 cm  version==0.8 m
+10. render_x_res render_y_res shouldn't be too large or the programme will be too slow
+11. when we encode measurement use framestack:1 use_depth_camera:False encode_measurement:True
+12. checkout the reward function you use 
+13 setproctitle 
