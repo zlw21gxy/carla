@@ -7,18 +7,22 @@ from ray.tune import run_experiments
 
 from env import CarlaEnv, ENV_CONFIG
 from models import register_carla_model
-from scenarios import TOWN2_STRAIGHT, TOWN2_ONE_CURVE, TOWN2_NAVIGATION
+
+
+
+from scenarios import TOWN2_STRAIGHT, TOWN2_ONE_CURVE, TOWN2_NAVIGATION 
+
 
 env_config = ENV_CONFIG.copy()
 # update config
 env_config.update({
     "verbose": False,
-    "x_res": 120,
-    "y_res": 120,
+    "x_res": 96,
+    "y_res": 96,
     "use_depth_camera": False,
     "discrete_actions": False,
     "server_map": "/Game/Maps/Town02",
-    "scenarios": TOWN2_NAVIGATION, # TOWN2_ONE_CURVE,
+    "scenarios": TOWN2_ONE_CURVE,
 })
 register_carla_model()
 
@@ -33,7 +37,7 @@ run_experiments({
                 "custom_model": "carla",   # defined in model
                 "custom_options": {
                     "image_shape": [
-                        env_config["x_res"], env_config["y_res"], 6
+                        env_config["x_res"], env_config["y_res"], 8
                     ],
                 }#,
               #  "conv_filters": [

@@ -25,7 +25,11 @@ except Exception:
 import gym
 from gym.spaces import Box, Discrete, Tuple
 
-from scenarios import DEFAULT_SCENARIO, LANE_KEEP, TOWN2_ONE_CURVE, TOWN2_NAVIGATION 
+
+
+
+from scenarios import DEFAULT_SCENARIO, LANE_KEEP, TOWN2_ONE_CURVE, TOWN2_NAVIGATION #, TOWN2_ONE_CURVE_CUSTOM
+
 
 # Set this where you want to save image outputs (or empty string to disable)
 CARLA_OUT_PATH = os.environ.get("CARLA_OUT", os.path.expanduser("~/carla_out"))
@@ -87,12 +91,12 @@ ENV_CONFIG = {
     "framestack": 1,  # note: only [1, 2] currently supported
     "early_terminate_on_collision": True,
     "reward_function": "custom",
-    "render_x_res": 1900,
-    "render_y_res": 600,
-    "x_res": 120,  # cv2.resize()
-    "y_res": 120,  # cv2.resize()
+    "render_x_res": 300,
+    "render_y_res": 96,
+    "x_res": 96,  # cv2.resize()
+    "y_res": 96,  # cv2.resize()
     "server_map": "/Game/Maps/Town02",
-    "scenarios": TOWN2_NAVIGATION, # TOWN2_ONE_CURVE,  # [DEFAULT_SCENARIO], # TOWN2_ONE_CURVE, #    TOWN2_ALL, # [LANE_KEEP]
+    "scenarios": TOWN2_ONE_CURVE, # [LANE_KEEP]
     "use_depth_camera": False,  # use depth instead of rgb.
     "discrete_actions": False,
     "squash_action_logits": False,
@@ -165,7 +169,7 @@ class CarlaEnv(gym.Env):
             image_space = Box(
                 0,
                 255,
-                shape=(config["y_res"], config["x_res"], 6),
+                shape=(config["y_res"], config["x_res"], 8),
                 dtype=np.float32)
 
         # The Observation Space
@@ -204,7 +208,7 @@ class CarlaEnv(gym.Env):
         self.server_process = subprocess.Popen(
             [
                 SERVER_BINARY, self.config["server_map"], "-windowed",
-                "-ResX=800", "-ResY=600", "-carla-server", "-benchmark -fps=10",   # "-benchmark -fps=10": to run the simulation at a fixed time-step of 0.1 seconds
+                "-ResX=800", "-ResY=600", "-carla-server", "-benchmark -fps=10", #: to run the simulation at a fixed time-step of 0.1 seconds
                 "-carla-world-port={}".format(self.server_port)
             ],
             preexec_fn=os.setsid,
@@ -291,19 +295,14 @@ class CarlaEnv(gym.Env):
                                    self.config["render_y_res"])
             # camera1.set_position(30, 0, 170)
             camera1.set_position(0.5, 0.0, 1.6)
-            # camera1.set_rotation(0.0, 0.0, 0.0)
-
+            camera1.set(FOV=120)
             settings.add_sensor(camera1)
 
         camera2 = Camera("CameraRGB")
         camera2.set_image_size(self.config["render_x_res"],
                                self.config["render_y_res"])
-        # camera2.set_position(30, 0, 170)
-        # camera2.set_position(0.3, 0.0, 1.3)
-        # camera2.set_position(2.0, 0.0, 1.4)
-        # camera2.set_rotation(0.0, 0.0, 0.0)
+        camera2.set(FOV=120)
         camera2.set_position(0.5, 0.0, 1.6)
-
         settings.add_sensor(camera2)
 
         # Setup start and end positions
@@ -318,8 +317,8 @@ class CarlaEnv(gym.Env):
             self.end_pos.location.x, self.end_pos.location.y
         ]
         print("Start pos {} ({}), end {} ({})".format(
-            self.scenario["start_pos_id"], [int(i) for i in self.start_coord],
-            self.scenario["end_pos_id"], [int(i) for i in self.end_coord]))
+            self.scenario["start_pos_id"], [int(x) for x in self.start_coord],
+            self.scenario["end_pos_id"], [int(x) for x in self.end_coord]))
 
         # Notify the server that we want to start the episode at the
         # player_start index. This function blocks until the server is ready
@@ -342,10 +341,24 @@ class CarlaEnv(gym.Env):
         if self.config["framestack"] == 2:
             image = np.concatenate([prev_image, image], axis=2)
         if self.config["encode_measurement"]:
-            image = np.concatenate([image, (np.zeros((image.shape[0], image.shape[1], 1))+py_measurements["forward_speed"]-15)/15],
-                                   axis=2)
-            image = np.concatenate([image, (np.zeros((image.shape[0], image.shape[1], 1))+COMMAND_ORDINAL[py_measurements["next_command"]]-2)/2],
-                                   axis=2)
+           # image = np.concatenate([image, (np.zeros((image.shape[0], image.shape[1], 1))+py_measurements["forward_speed"]-15)/15], axis=2)
+           # image = np.concatenate([image, (np.zeros((image.shape[0], image.shape[1], 1))+COMMAND_ORDINAL[py_measurements["next_command"]]-2)/2], axis=2)
+          #  image_2 = np.concatenate([prev_image[:, :, 0:2], image], axis=2)           
+            feature_map = np.zeros([4, 4])
+            feature_map[1, :] = (py_measurements["forward_speed"]-15)/15
+            feature_map[2, :] = (COMMAND_ORDINAL[py_measurements["next_command"]]-2)/2
+            feature_map[0, 0] = py_measurements["x_orient"]
+            feature_map[0, 1] = py_measurements["y_orient"]
+            feature_map[0, 2] = (py_measurements["distance_to_goal"]-170)/170
+            feature_map[0, 1] = (py_measurements["distance_to_goal_euclidean"]-170)/170
+            feature_map[3 ,0] = (py_measurements["x"]-50)/150
+            feature_map[3, 1] = (py_measurements["y"]-50)/150
+            feature_map[3, 2] = (py_measurements["end_coord"][0]-150)/150
+            feature_map[3, 3] = (py_measurements["end_coord"][1]-150)/150
+            feature_map = np.tile(feature_map, (24, 24))
+            image = np.concatenate([prev_image[:, :, 0:3], image, feature_map[:, :, np.newaxis]], axis=2)
+            # print("image shape after encoding", image.shape)
+
 
         obs = (image, COMMAND_ORDINAL[py_measurements["next_command"]], [
             py_measurements["forward_speed"],
@@ -537,8 +550,8 @@ class CarlaEnv(gym.Env):
             # data = (image - 0.5) * 2
             data = image.reshape(self.config["render_y_res"],
                                 self.config["render_x_res"], -1)
-            data[:, :, 3] = (data[:, :, 0] - 0.5) * 2
-            data[:, :, 0:2] = (data[:, :, 0:2].astype(np.float32) - 128) / 128
+            #data[:, :, 4] = (data[:, :, 0] - 0.5) * 2
+            #data[:, :, 0:3] = (data[:, :, 0:2].astype(np.float32) - 128) / 128
             data = cv2.resize(
                 data, (self.config["x_res"], self.config["y_res"]),
                 interpolation=cv2.INTER_AREA)
@@ -565,9 +578,10 @@ class CarlaEnv(gym.Env):
         observation = None
         if self.config["encode_measurement"]:
             # print(sensor_data["CameraRGB"].data.shape, sensor_data["CameraDepth"].data.shape)
-            observation = np.concatenate((sensor_data["CameraRGB"].data,
-                                          sensor_data["CameraDepth"].data[:, :, np.newaxis]),
-                                         axis=2)
+            observation = np.concatenate(((sensor_data["CameraRGB"].data.astype(np.float32)-128)/128,
+                                         (sensor_data["CameraDepth"].data[:, :, np.newaxis] - 0.5)*0.5), axis=2)
+
+            # print("observation_shape", observation.shape)
         else:
             if self.config["use_depth_camera"]:
                 camera_name = "CameraDepth"
@@ -702,13 +716,12 @@ def compute_reward_custom(env, prev, current):
         print("Cur dist {}, prev dist {}".format(cur_dist, prev_dist))
 
     # Distance travelled toward the goal in m
-    reward += np.clip(prev_dist - cur_dist, -10.0, 10.0)  # clip in case agent drive too fast
+    reward += 0.5 * np.clip(prev_dist - cur_dist, -12.0, 12.0)
 
     # Speed reward, up 30.0 (km/h)
     reward += np.clip(current["forward_speed"], 0.0, 30.0) / 10
-    if current["forward_speed"]>40:
-        reward -= (current["forward_speed"]-40)/10
-    # reward -= (current["forward_speed"] - 30)/12
+    if current["forward_speed"] > 40:
+        reward -= (current["forward_speed"] - 40)/12 
     # New collision damage
     new_damage = (
         current["collision_vehicles"] + current["collision_pedestrians"] +
@@ -720,14 +733,15 @@ def compute_reward_custom(env, prev, current):
         reward -= 100.0
 
     # Sidewalk intersection
-    reward -= 20 * current["intersection_offroad"]    # [0, 1]
-
+    reward -= 20 * int(current["intersection_offroad"] > 0.001)   # [0, 1]
+    # print(current["intersection_offroad"])
     # Opposite lane intersection
     reward -= 4 * current["intersection_otherlane"]  # [0, 1]
     # print(current["intersection_offroad"], current["intersection_otherlane"])
     # Reached goal
     if current["next_command"] == "REACH_GOAL":
         reward += 200.0
+        print('bro, you reach the goal, well done!!!')
 
     return reward
 
@@ -774,8 +788,8 @@ def print_measurements(measurements):
     message += "{other_lane:.0f}% other lane, {offroad:.0f}% off-road, "
     message += "({agents_num:d} non-player agents in the scene)"
     message = message.format(
-        pos_x=player_measurements.transform.location.x / 100,  # cm -> m
-        pos_y=player_measurements.transform.location.y / 100,
+        pos_x=player_measurements.transform.location.x ,  # m in calra8
+        pos_y=player_measurements.transform.location.y ,
         speed=player_measurements.forward_speed,
         col_cars=player_measurements.collision_vehicles,
         col_ped=player_measurements.collision_pedestrians,
@@ -794,15 +808,16 @@ def sigmoid(x):
 def collided_done(py_measurements):
     m = py_measurements
     collided = (m["collision_vehicles"] > 0 or m["collision_pedestrians"] > 0
-                or m["collision_other"] > 0 or m["intersection_offroad"] > 0)
+                or m["collision_other"] > 0 or m["intersection_offroad"] > 0.02)
     return bool(collided or m["total_reward"] < -80)
 
 
 if __name__ == "__main__":
     for _ in range(2):
         env = CarlaEnv()
-        obs = env.reset()
-        print("reset", obs[0].shape)
+        obs = env.reset()      
+        print(obs[0].shape) 
+        # start = time.time
         start = time.time()
         done = False
         i = 0
@@ -814,5 +829,8 @@ if __name__ == "__main__":
             else:
                 obs, reward, done, info = env.step([1, 0])
             total_reward += reward
+            # print(info["end_coord"])
+              
+          #  print(done)
            # print(i, "rew", reward, "total", total_reward, "done", done)
-        print("{} fps".format(i / (time.time() - start)))
+        print("{:.2f} fps".format(float(i / (time.time() - start))))
