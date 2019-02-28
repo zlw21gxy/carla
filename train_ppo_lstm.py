@@ -31,18 +31,18 @@ run_experiments({
     "carla": {
         "run": "PPO",
         "env": CarlaEnv,
-        "checkpoint_freq": 1,
+        "checkpoint_freq": 10,
         "config": {
             "env_config": env_config,
             "model": {
                 "custom_model": "carla",   # defined in model
                 "custom_options": {
                     "image_shape": [
-                        env_config["x_res"], env_config["y_res"], 8
+                        env_config["x_res"], env_config["y_res"], 5
                     ],
                 }
             },
-            "num_workers": 1,
+            "num_workers": 15,
             "train_batch_size": 2400,
             "sample_batch_size": 120,
             "lambda": 0.95,
@@ -50,7 +50,7 @@ run_experiments({
             "num_sgd_iter": 20,
             "lr": 0.0001,
             "sgd_minibatch_size": 32,
-            "num_gpus": 1,
+            "num_gpus": 3,
         },
     },
 })

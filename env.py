@@ -38,14 +38,14 @@ if CARLA_OUT_PATH and not os.path.exists(CARLA_OUT_PATH):
 
 # Set this to the path of your Carla binary
 SERVER_BINARY = os.environ.get("CARLA_SERVER",
-                               os.path.expanduser("~/Documents/carla/CarlaUE4.sh"))
+                               os.path.expanduser("/data/carla/CarlaUE4.sh"))
 
-assert os.path.exists(SERVER_BINARY)
+# assert os.path.exists(SERVER_BINARY)
 if "CARLA_PY_PATH" in os.environ:
     sys.path.append(os.path.expanduser(os.environ["CARLA_PY_PATH"]))
 else:
     # TODO(ekl) switch this to the binary path once the planner is in master
-    sys.path.append(os.path.expanduser("~/Documents/carla/PythonClient/"))
+    sys.path.append(os.path.expanduser("/data/carla/PythonClient/"))
 
 try:
     from carla.client import CarlaClient
@@ -76,10 +76,10 @@ COMMAND_ORDINAL = {
 }
 
 # Number of retries if the server doesn't respond
-RETRIES_ON_ERROR = 5
+RETRIES_ON_ERROR = 17
 
 # Dummy Z coordinate to use when we only care about (x, y)
-GROUND_Z = 22
+GROUND_Z = 0.22
 
 # Default environment configuration
 ENV_CONFIG = {
@@ -787,7 +787,7 @@ def sigmoid(x):
 def collided_done(py_measurements):
     m = py_measurements
     collided = (m["collision_vehicles"] > 0 or m["collision_pedestrians"] > 0
-                or m["collision_other"] > 0 or m["intersection_offroad"] > 0.02)
+                or m["collision_other"] > 0 or m["intersection_offroad"] > 0.00001)
     return bool(collided or m["total_reward"] < -80)
 
 
