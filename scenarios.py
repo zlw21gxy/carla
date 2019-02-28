@@ -110,7 +110,7 @@ TOWN2_STRAIGHT_DYNAMIC = [
 ]
 
 TOWN2_ONE_CURVE = [
-    build_scenario("Town02", start, end, 10, 20, 1000, [0])
+    build_scenario("Town02", start, end, 20, 50, 1000, [0])
     for (start, end) in POSES_TOWN2_ONE_CURVE
 ]
 
