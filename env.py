@@ -154,13 +154,19 @@ class CarlaEnv(gym.Env):
                 dtype=np.uint8)
         # encode_measure ---> rgb + depth + pre_rgb + measurement_encode
         # 3 + 1 + 3 + 1 = 8
-        if config["encode_measurement"]:
+        # if config["encode_measurement"]:
+        #     image_space = Box(
+        #         0,
+        #         255,
+        #         shape=(config["y_res"], config["x_res"], 8),
+        #         dtype=np.float32)
+
+        if config["use_seg"]:
             image_space = Box(
                 0,
                 255,
-                shape=(config["y_res"], config["x_res"], 8),
+                shape=(config["y_res"], config["x_res"], 5),
                 dtype=np.float32)
-
         # The Observation Space
         self.observation_space = Tuple(
             [
@@ -706,7 +712,7 @@ def compute_reward_custom(env, prev, current):
         reward -= 100.0
 
     # Sidewalk intersection
-    reward -= 20 * int(current["intersection_offroad"] > 0.001)   # [0, 1]
+    reward -= np.clip(10 * current["forward_speed"] * int(current["intersection_offroad"] > 0.001), 0, 50)   # [0, 1]
     # print(current["intersection_offroad"])
     # Opposite lane intersection
     reward -= 4 * current["intersection_otherlane"]  # [0, 1]
