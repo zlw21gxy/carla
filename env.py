@@ -103,26 +103,14 @@ ENV_CONFIG = {
     "encode_measurement": True
 }
 
-DISCRETE_ACTIONS = {
-    # coast
-    0: [0.0, 0.0],
-    # turn left
-    1: [0.0, -0.5],
-    # turn right
-    2: [0.0, 0.5],
-    # forward
-    3: [1.0, 0.0],
-    # brake
-    4: [-0.5, 0.0],
-    # forward left
-    5: [1.0, -0.5],
-    # forward right
-    6: [1.0, 0.5],
-    # brake left
-    7: [-0.5, -0.5],
-    # brake right
-    8: [-0.5, 0.5],
-}
+k = 0
+DISCRETE_ACTIONS = {}
+for i in [-0.5, 0, 0.7]:
+    for j in [-0.9, -0.6, -0.3, 0, 0.3, 0.6, 0.9]:
+        DISCRETE_ACTIONS[k] = [i, j]
+        k += 1
+
+
 
 live_carla_processes = set()  # Carla Server
 
