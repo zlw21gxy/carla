@@ -32,6 +32,7 @@ run_experiments({
         "run": "PPO",
         "env": CarlaEnv,
         "checkpoint_freq": 1,
+        "restore": "~/ray_results/carla/PPO_CarlaEnv_0_2019-03-03_21-12-36d6m47l7r/checkpoint_2754",
         "config": {
             "env_config": env_config,
             "model": {
