@@ -101,7 +101,7 @@ ENV_CONFIG = {
     "discrete_actions": True,
     "squash_action_logits": False,
     "encode_measurement": True,  # encode measurement information into channel
-    "use_seg": True  # use segmentation camera
+    "use_seg": False  # use segmentation camera
 }
 
 k = 0
@@ -152,14 +152,14 @@ class CarlaEnv(gym.Env):
                 shape=(config["y_res"], config["x_res"],
                        3 * config["framestack"]),
                 dtype=np.uint8)
-        # encode_measure ---> rgb + depth + pre_rgb + measurement_encode
-        # 3 + 1 + 3 + 1 = 8
-        # if config["encode_measurement"]:
-        #     image_space = Box(
-        #         0,
-        #         255,
-        #         shape=(config["y_res"], config["x_res"], 8),
-        #         dtype=np.float32)
+        # encode_measure ---> rgb + measurement_encode + pre_rgb
+        # 3 + 3 + 1 = 7
+        if config["encode_measurement"]:
+             image_space = Box(
+                 0,
+                 255,
+                 shape=(config["y_res"], config["x_res"], 8),
+                 dtype=np.float32)
 
         if config["use_seg"]:
             image_space = Box(
@@ -301,12 +301,12 @@ class CarlaEnv(gym.Env):
         #
         #     settings.add_sensor(camera1)
         # else:
-        #     camera2 = Camera("CameraRGB")
-        #     camera2.set_image_size(self.config["render_x_res"],
-        #                        self.config["render_y_res"])
-        #     camera2.set(FOV=120)
-        #     camera2.set_position(0.5, 0.0, 1.6)
-        #     settings.add_sensor(camera2)
+        camera2 = Camera("CameraRGB")
+        camera2.set_image_size(self.config["render_x_res"],
+                                self.config["render_y_res"])
+        camera2.set(FOV=120)
+        camera2.set_position(0.5, 0.0, 1.6)
+        settings.add_sensor(camera2)
 
         if self.config["use_seg"]:
             camera1 = Camera("CameraDepth", PostProcessing="Depth")
@@ -372,8 +372,7 @@ class CarlaEnv(gym.Env):
         feature_map = np.tile(feature_map, (24, 24))
        #  print("checkkkkkk...sad", prev_image.shape, image.shape, feature_map.shape)
         image = np.concatenate(
-               [prev_image, image, feature_map[:, :, np.newaxis]], axis=2)
-
+               [prev_image, image, feature_map[:, :, np.newaxis])], axis=2)
         obs = (image, COMMAND_ORDINAL[py_measurements["next_command"]], [
             py_measurements["forward_speed"],
             py_measurements["distance_to_goal"]
@@ -390,7 +389,7 @@ class CarlaEnv(gym.Env):
     #  'x_orient': -1.0,
     #  'y_orient': -6.4373016357421875e-06,
     #  'forward_speed': -3.7578740032934155e-13,
-    #  'distance_to_goal': 0.6572,
+    #  'dstance_to_goal': 0.6572,
     #  'distance_to_goal_euclidean': 0.6200001239776611,
     #  'collision_vehicles': 0.0,
     #  'collision_pedestrians': 0.0,
@@ -465,6 +464,7 @@ class CarlaEnv(gym.Env):
 
         # Process observations: self._read_observation() returns image and py_measurements.
         image, py_measurements = self._read_observation()
+        # print(image.shape)
         if self.config["verbose"]:
             print("Next command", py_measurements["next_command"])
         if type(action) is np.ndarray:
@@ -512,6 +512,7 @@ class CarlaEnv(gym.Env):
 
         self.num_steps += 1
         image = self.preprocess_image(image)
+        # print(image.shape)
         return (self.encode_obs(image, py_measurements), reward, done,
                 py_measurements)
 
@@ -555,9 +556,9 @@ class CarlaEnv(gym.Env):
                                         (sensor_data["CameraDepth"].data[:, :, np.newaxis] - 0.5)*0.5), axis=2)
         elif self.config["encode_measurement"]:
             # print(sensor_data["CameraRGB"].data.shape, sensor_data["CameraDepth"].data.shape)
-            observation = np.concatenate(((sensor_data["CameraRGB"].data.astype(np.float32)-128)/128,
-                                        (sensor_data["CameraDepth"].data[:, :, np.newaxis] - 0.5)*0.5), axis=2)
-
+            #observation = np.concatenate(((sensor_data["CameraRGB"].data.astype(np.float32)-128)/128,
+            #                            (sensor_data["CameraDepth"].data[:, :, np.newaxis] - 0.5)*0.5), axis=2)
+            observation = (sensor_data["CameraRGB"].data.astype(np.float32) - 128)/128
             # print("observation_shape", observation.shape)
 
         else:
