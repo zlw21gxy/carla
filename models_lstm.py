@@ -29,19 +29,22 @@ class CarlaModel(Model):
             'is_training': <tf.Tensor 'default / PlaceholderWithDefault: 0' shape=() dtype = bool >}"""
 
         convs = options.get("structure", [
-            [24, [4, 4], 3],
-            [32, [4, 4], 2],
+            [32, [4, 4], 3],
+            [48, [4, 4], 2],
             [64, [3, 3], 2],
-            [64, [3, 3], 1],
+            [72, [3, 3], 1],
             [1024, [8, 8], 1],
         ])
 
         hiddens = options.get("fcnet_hiddens", [700, 100])
-        fcnet_activation = options.get("fcnet_activation", "tanh")
+        fcnet_activation = options.get("fcnet_activation", "elu")
+        # print(options)
         if fcnet_activation == "tanh":
             activation = tf.nn.tanh
         elif fcnet_activation == "relu":
             activation = tf.nn.relu
+        elif fcnet_activation == "elu":
+            activation = tf.nn.elu
 
         vision_in = input_dict['obs'][0]
         metrics_in = tf.concat([input_dict['obs'][1], input_dict['obs'][2]], axis=-1)

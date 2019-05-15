@@ -32,18 +32,20 @@ run_experiments({
         "run": "PPO",
         "env": CarlaEnv,
         "checkpoint_freq": 5,
-        "restore":"/home/gu/ray_results/carla/PPO_CarlaEnv_0_2019-03-23_21-18-06u4v3o4_p/checkpoint_995/checkpoint-995",
+        # "use_lstm": True,
+        # "restore":"/home/gu/ray_results/carla/PPO_CarlaEnv_0_2019-05-15_12-26-41z6llpae8/checkpoint_1030/checkpoint-1030",
         "config": {
             "env_config": env_config,
             "model": {
                 "custom_model": "carla",   # defined in model
+                "use_lstm": True,
                 "custom_options": {
                     "image_shape": [
                         env_config["x_res"], env_config["y_res"], 7
                     ],
                 }
             },
-            "num_workers": 12,
+            "num_workers": 10,
             "train_batch_size": 2400,
             "sample_batch_size": 120,
             "lambda": 0.95,

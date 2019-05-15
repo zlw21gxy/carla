@@ -13,8 +13,8 @@ import gym
 import ray
 from ray.rllib.agents.registry import get_agent_class
 from env import CarlaEnv, ENV_CONFIG
-from models import register_carla_model
-
+# from models import register_carla_model
+from models_lstm import register_carla_model
 EXAMPLE_USAGE = """
 Example Usage via RLlib CLI:
     rllib rollout /tmp/ray/checkpoint_dir/checkpoint-0 --run DQN
