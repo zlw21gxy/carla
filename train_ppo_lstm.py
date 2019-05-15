@@ -31,15 +31,15 @@ run_experiments({
     "carla": {
         "run": "PPO",
         "env": CarlaEnv,
-        "checkpoint_freq": 10,
-       # "restore":"/home/gu/ray_results/carla/PPO_CarlaEnv_0_2019-03-18_13-46-31c1hd_ow_/checkpoint_3115/checkpoint-3115",
+        "checkpoint_freq": 5,
+        "restore":"/home/gu/ray_results/carla/PPO_CarlaEnv_0_2019-03-23_21-18-06u4v3o4_p/checkpoint_995/checkpoint-995",
         "config": {
             "env_config": env_config,
             "model": {
                 "custom_model": "carla",   # defined in model
                 "custom_options": {
                     "image_shape": [
-                        env_config["x_res"], env_config["y_res"], 8
+                        env_config["x_res"], env_config["y_res"], 7
                     ],
                 }
             },

@@ -93,9 +93,13 @@ ENV_CONFIG = {
     "reward_function": "custom",
     "render_x_res": 300,
     "render_y_res": 96,
+    #image_size
     "x_res": 96,  # cv2.resize()
     "y_res": 96,  # cv2.resize()
+
     "server_map": "/Game/Maps/Town02",
+
+    #scenarios
     "scenarios": TOWN2_ONE_CURVE,  # [LANE_KEEP]
     "use_depth_camera": False,  # use depth instead of rgb.
     "discrete_actions": True,
@@ -152,13 +156,13 @@ class CarlaEnv(gym.Env):
                 shape=(config["y_res"], config["x_res"],
                        3 * config["framestack"]),
                 dtype=np.uint8)
-        # encode_measure ---> rgb + measurement_encode + pre_rgb
-        # 3 + 3 + 1 = 7
+        # encode_measure ---> rgb + measurement_encode + pre_rgb #channel_type
+        # 3 + 3 + 1 = 7 #channel_number
         if config["encode_measurement"]:
              image_space = Box(
                  0,
                  255,
-                 shape=(config["y_res"], config["x_res"], 8),
+                 shape=(config["y_res"], config["x_res"], 7),
                  dtype=np.float32)
 
         if config["use_seg"]:
@@ -372,7 +376,7 @@ class CarlaEnv(gym.Env):
         feature_map = np.tile(feature_map, (24, 24))
        #  print("checkkkkkk...sad", prev_image.shape, image.shape, feature_map.shape)
         image = np.concatenate(
-               [prev_image, image, feature_map[:, :, np.newaxis])], axis=2)
+               [prev_image, image, feature_map[:, :, np.newaxis]], axis=2)
         obs = (image, COMMAND_ORDINAL[py_measurements["next_command"]], [
             py_measurements["forward_speed"],
             py_measurements["distance_to_goal"]
