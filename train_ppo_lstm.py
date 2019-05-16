@@ -39,6 +39,7 @@ run_experiments({
             "model": {
                 "custom_model": "carla",   # defined in model
                 "use_lstm": True,
+                # "lstm_use_prev_action_reward": True,
                 "custom_options": {
                     "image_shape": [
                         env_config["x_res"], env_config["y_res"], 7
@@ -51,9 +52,11 @@ run_experiments({
             "lambda": 0.95,
             "clip_param": 0.2,
             "num_sgd_iter": 20,
+            "vf_share_layers": True,
             "lr": 0.0001,
-            "sgd_minibatch_size": 32,
-            "num_gpus": 1,
+            "sgd_minibatch_size": 64,
+            "num_gpus": 2,
         },
     },
 })
+# /tmp/ray/session_2019-05-15_20-15-57_14951/tmpcpypfea8.json

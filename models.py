@@ -38,7 +38,7 @@ class CarlaModel(Model):
             [1024, [8, 8], 1],
         ])
 
-        hiddens = options.get("fcnet_hiddens", [700, 100])
+        hiddens = options.get("fcnet_hiddens", [128])
         fcnet_activation = options.get("fcnet_activation", "tanh")
         if fcnet_activation == "tanh":
             activation = tf.nn.tanh
