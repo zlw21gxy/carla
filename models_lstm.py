@@ -29,20 +29,22 @@ class CarlaModel(Model):
             'is_training': <tf.Tensor 'default / PlaceholderWithDefault: 0' shape=() dtype = bool >}"""
 
         convs = options.get("structure", [
-            [24, [4, 4], 3],
-            [32, [4, 4], 2],
-            [64, [3, 3], 2],
-            [64, [3, 3], 1],
+            [48, [4, 4], 3],
+            [64, [4, 4], 2],
+            [72, [3, 3], 2],
+            [128, [3, 3], 1],
+            [256, [3, 3], 1],
             [1024, [8, 8], 1],
         ])
 
         hiddens = options.get("fcnet_hiddens", [700, 100])
-        fcnet_activation = options.get("fcnet_activation", "tanh")
+        fcnet_activation = options.get("fcnet_activation", "elu")
         if fcnet_activation == "tanh":
             activation = tf.nn.tanh
         elif fcnet_activation == "relu":
             activation = tf.nn.relu
-
+        elif fcnet_activation == "elu":
+            activation = tf.nn.elu
         vision_in = input_dict['obs'][0]
         metrics_in = tf.concat([input_dict['obs'][1], input_dict['obs'][2]], axis=-1)
 
@@ -53,6 +55,7 @@ class CarlaModel(Model):
                     out_size,
                     kernel,
                     stride,
+                    activation_fn=activation,
                     scope="conv{}".format(i))
             out_size, kernel, stride = convs[-1]
             vision_in = slim.conv2d(
@@ -60,6 +63,7 @@ class CarlaModel(Model):
                 out_size,
                 kernel,
                 stride,
+                activation_fn=activation,
                 padding="VALID",
                 scope="conv_out")
             vision_in = tf.squeeze(vision_in, [1, 2])
@@ -94,6 +98,18 @@ class CarlaModel(Model):
 
         return output, last_layer
 
+    def value_function(self):
+        hiddens = [400, 300]
+        last_layer = self.last_layer
+        with tf.name_scope("value_function"):
+            i = 0
+            for size in hiddens:
+                last_layer = slim.fully_connected(last_layer, size, weights_initializer=xavier_initializer(),
+                                                 activation_fn=tf.nn.elu,scope="value_function{}".format(i))
+                i += 1
+            output = slim.fully_connected(last_layer, 1, weights_initializer=normc_initializer(0.01),
+                                                 activation_fn=None,scope="value_out")
+        return tf.reshape(output, [-1])
 
 def register_carla_model():
     ModelCatalog.register_custom_model("carla", CarlaModel)

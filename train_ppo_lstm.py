@@ -4,7 +4,7 @@ from __future__ import print_function
 
 import ray
 from ray.tune import run_experiments
-
+from ray import tune
 from env import CarlaEnv, ENV_CONFIG
 # from models import register_carla_model
 from models_lstm import register_carla_model
@@ -32,11 +32,12 @@ run_experiments({
         "run": "PPO",
         "env": CarlaEnv,
         "checkpoint_freq": 5,
-        "restore":"/home/gu/ray_results/carla/PPO_CarlaEnv_0_2019-03-23_21-18-06u4v3o4_p/checkpoint_995/checkpoint-995",
+        # "restore":"/home/gu/ray_results/carla/PPO_CarlaEnv_0_2019-05-15_18-12-3037lebrzk/checkpoint_825/checkpoint-825",
         "config": {
             "env_config": env_config,
             "model": {
                 "custom_model": "carla",   # defined in model
+                "use_lstm": True,
                 "custom_options": {
                     "image_shape": [
                         env_config["x_res"], env_config["y_res"], 7
@@ -45,13 +46,14 @@ run_experiments({
             },
             "num_workers": 12,
             "train_batch_size": 2400,
-            "sample_batch_size": 120,
+            "sample_batch_size": 200, # Size of batches collected from each worker
             "lambda": 0.95,
             "clip_param": 0.2,
-            "num_sgd_iter": 20,
-            "lr": 0.0001,
-            "sgd_minibatch_size": 32,
-            "num_gpus": 1,
+            "num_sgd_iter": 50,
+            "vf_share_layers": True,
+            "lr": 0.0003,
+            "sgd_minibatch_size": 128,
+            "num_gpus": 2,
         },
     },
 })
