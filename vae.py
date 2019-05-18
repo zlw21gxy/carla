@@ -18,6 +18,35 @@ import os
 # reparameterization trick
 # instead of sampling from Q(z|X), sample epsilon = N(0,I)
 # z = z_mean + sqrt(var) * epsilon
+
+from keras.preprocessing.image import ImageDataGenerator
+from keras import layers
+from keras.models import Model, Sequential
+# All images will be rescaled by 1./255
+
+train_dir = "/home/gu/project/ppo/carla/data/train"
+val_dir = "/home/gu/project/ppo/carla/data/val"
+train_datagen = ImageDataGenerator(rescale=1./255)
+test_datagen = ImageDataGenerator(rescale=1./255)
+
+train_generator = train_datagen.flow_from_directory(
+        # This is the target directory
+        train_dir,
+        # All images will be resized to 150x150
+        target_size=(150, 150),
+        batch_size=20,
+        # Since we use binary_crossentropy loss, we need binary labels
+        class_mode='binary')
+
+validation_generator = test_datagen.flow_from_directory(
+        val_dir,
+        target_size=(150, 150),
+        batch_size=20,
+        class_mode='binary')
+
+
+
+
 def sampling(args):
     """Reparameterization trick by sampling from an isotropic unit Gaussian.
     # Arguments
@@ -112,6 +141,48 @@ batch_size = 128
 latent_dim = 2
 epochs = 50
 
+
+def create_encoder(latent_dim):
+    '''
+    Creates a convolutional encoder model for MNIST images.
+
+    - Input for the created model are MNIST images.
+    - Output of the created model are the sufficient statistics
+      of the variational distriution q(t|x;phi), mean and log
+      variance.
+    '''
+    encoder_iput = layers.Input(shape=image_shape, name='image')
+
+    x = layers.Conv2D(32, 3, padding='same', activation='relu')(encoder_iput)
+    x = layers.Conv2D(64, 3, padding='same', activation='relu', strides=(2, 2))(x)
+    x = layers.Conv2D(64, 3, padding='same', activation='relu')(x)
+    x = layers.Conv2D(64, 3, padding='same', activation='relu')(x)
+    x = layers.Flatten()(x)
+    x = layers.Dense(32, activation='relu')(x)
+
+    t_mean = layers.Dense(latent_dim, name='t_mean')(x)
+    t_log_var = layers.Dense(latent_dim, name='t_log_var')(x)
+
+    return Model(encoder_iput, [t_mean, t_log_var], name='encoder')
+
+
+def create_decoder(latent_dim):
+    '''
+    Creates a (de-)convolutional decoder model for MNIST images.
+
+    - Input for the created model are latent vectors t.
+    - Output of the model are images of shape (28, 28, 1) where
+      the value of each pixel is the probability of being white.
+    '''
+    decoder_input = layers.Input(shape=(latent_dim,), name='t')
+
+    x = layers.Dense(12544, activation='relu')(decoder_input)
+    x = layers.Reshape((14, 14, 64))(x)
+    x = layers.Conv2DTranspose(32, 3, padding='same', activation='relu', strides=(2, 2))(x)
+    x = layers.Conv2D(1, 3, padding='same', activation='sigmoid', name='image')(x)
+
+    return Model(decoder_input, x, name='decoder')
+
 # VAE model = encoder + decoder
 # build encoder model
 inputs = Input(shape=input_shape, name='encoder_input')
@@ -128,6 +199,7 @@ encoder = Model(inputs, [z_mean, z_log_var, z], name='encoder')
 encoder.summary()
 plot_model(encoder, to_file='vae_mlp_encoder.png', show_shapes=True)
 
+
 # build decoder model
 latent_inputs = Input(shape=(latent_dim,), name='z_sampling')
 x = Dense(intermediate_dim, activation='relu')(latent_inputs)
@@ -141,6 +213,15 @@ plot_model(decoder, to_file='vae_mlp_decoder.png', show_shapes=True)
 # instantiate VAE model
 outputs = decoder(encoder(inputs)[2])
 vae = Model(inputs, outputs, name='vae_mlp')
+
+
+
+
+
+
+
+
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
