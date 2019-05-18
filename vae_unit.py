@@ -40,14 +40,17 @@ def create_encoder(latent_dim):
         x = layers.Dense(64, activation='relu')(x)
     elif image_shape == (128, 128, 3):
         kwargs = dict(strides=(2, 2), activation="elu", padding="same")
+        kwargs2 = dict(strides=(1, 1), activation="elu", padding="same")
+        kwargs3 = dict(strides=(1, 1), padding="same")
         x = layers.Conv2D(48, 3, **kwargs)(encoder_iput)
         x = layers.Conv2D(64, 3, **kwargs)(x)
         x = layers.Conv2D(72, 3, **kwargs)(x)
         x = layers.Conv2D(256, 3, **kwargs)(x)
-        # x = layers.Conv2D(512, 3, **kwargs)(x)
-        x = layers.Flatten()(x)
-        x = layers.Dense(1024, activation='elu')(x)
-
+        x = layers.Conv2D(512, 3, **kwargs3)(x)
+        x = keras.layers.GlobalAveragePooling2D()(x)
+        # x = layers.Flatten()(x)
+        # x = layers.Dense(1024)(x)
+    x = layers.Dense(256, activation='elu')(x)
     t_mean = layers.Dense(latent_dim, name='t_mean')(x)
     t_log_var = layers.Dense(latent_dim, name='t_log_var')(x)
 
@@ -70,14 +73,16 @@ def create_decoder(latent_dim):
         x = layers.Conv2D(3, 3, padding='same', activation='sigmoid', name='image')(x)
     elif image_shape == (128, 128, 3):
         kwargs = dict(strides=(2, 2), activation="elu", padding="same")
-        kwargs2 = dict(strides=(2, 2), padding="same")
+        kwargs3 = dict(strides=(1, 1), padding="same")
+        kwargs4 = dict(strides=(2, 2), padding="same")
         x = layers.Dense(1024, activation='relu')(decoder_input)
         x = layers.Reshape((4, 4, 64))(x)
         x = layers.Conv2DTranspose(128, 3, **kwargs)(x)
+        x = layers.Conv2DTranspose(72, 3, **kwargs)(x)
         x = layers.Conv2DTranspose(64, 3, **kwargs)(x)
-        x = layers.Conv2DTranspose(64, 3, **kwargs)(x)
-        x = layers.Conv2DTranspose(32, 3, **kwargs)(x)
-        x = layers.Conv2DTranspose(3, 3, **kwargs2)(x)
+        x = layers.Conv2DTranspose(48, 3, **kwargs)(x)
+        x = layers.Conv2DTranspose(3, 3, **kwargs4)(x)
+        # x = layers.Conv2D(3, 3, **kwargs3)(x)
     return Model(decoder_input, x, name='decoder')
 
 
@@ -199,8 +204,9 @@ def load_carla_data(normalize=False, num=None):
 def plot_image_rows(images_list, title_list):
     rows = len(images_list)
     cols = len(images_list[0])
-    plt.figure(figsize=(cols, 4))
+    # plt.figure(figsize=(cols, 3))
     def plot_image_row(images, title):
+        plt.figure(figsize=(cols, 3))
         plt.gcf().suptitle(title)
         for i, img in enumerate(images):
             plt.subplot(rows, cols, i + 1)

@@ -11,12 +11,13 @@ from keras.preprocessing.image import ImageDataGenerator
 import glob
 import cv2
 use_pretrained = False
-epochs = 150
-latent_dim = 64
-weight_file = 'carla_vae.h5'
-batch_size = 128
+epochs = 100
+latent_dim = 128
+# weight_file = 'carla_vae.h5'
+batch_size = 64
 from keras.callbacks import ModelCheckpoint
 # All images will be rescaled by 1./255
+
 
 def create_vae(latent_dim, return_kl_loss_op=False):
     '''
@@ -51,18 +52,21 @@ def create_vae(latent_dim, return_kl_loss_op=False):
     else:
         return model
 
+
 # Create plain VAE model and associated KL divergence loss operation
 vae, vae_kl_loss = create_vae(latent_dim, return_kl_loss_op=True)
 
 
 def vae_loss(x, t_decoded):
     '''Total loss for the plain VAE'''
-    return K.mean(reconstruction_loss(x, t_decoded) + vae_kl_loss)
+    beta = 1.0
+    sacle = 100.0
+    return sacle*K.mean(reconstruction_loss(x, t_decoded) + beta * vae_kl_loss)  # adjust losss scale
 
 
 def reconstruction_loss(x, t_decoded):
     '''Reconstruction loss for the plain VAE'''
-    return K.mean(K.square(K.batch_flatten(x) - K.batch_flatten(t_decoded)), axis=-1)
+    return K.mean(K.square(x - t_decoded), axis=(1, 2, 3))  # average over images
 
 
 # x_train, x_test = load_carla_data(normalize=True, num=1000)
@@ -72,20 +76,27 @@ filepath = "/home/gu/project/ppo/carla/models/carla/carla-cnn-best.hdf5"
 
 # Keep only a single checkpoint, the best over test accuracy.
 checkpoint = ModelCheckpoint(filepath,
-                            monitor='val_acc',
-                            verbose=1,
+                            monitor='val_loss',
+                            verbose=0,
                             save_best_only=True,
+                            period=2,
                             mode='max')
 
 if use_pretrained:
     vae.load_weights(filepath)
 else:
-    adam = keras.optimizers.Adam(lr=0.0001, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
+    # epochs = 50
+    learning_rate = 0.005
+    decay_rate = learning_rate / (epochs + 1)
+    # momentum = 0.8
+    # sgd = SGD(lr=learning_rate, momentum=momentum, decay=decay_rate, nesterov=False)
+
+    adam = keras.optimizers.Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=None, decay=decay_rate, amsgrad=False)
     vae.compile(optimizer=adam, loss=vae_loss)
     history = vae.fit(x=x_train, y=x_train, epochs=epochs, batch_size=batch_size,
             shuffle=True, validation_data=(x_test, x_test), verbose=2, callbacks=[checkpoint])
 
-    vae.save_weights("carla_vae.h5")
+    # vae.save_weights("carla_vae.h5")
 
 
 def encode(model, images):
@@ -102,13 +113,15 @@ def encode_decode(model, images):
     '''Encodes and decodes an image with the given auto-encoder model'''
     return decode(model, encode(model, images))
 
-plt.plot(history.history['loss'])
-plt.plot(history.history['val_loss'])
-plt.title('Model loss')
-plt.ylabel('Loss')
-plt.xlabel('Epoch')
-plt.legend(['Train', 'Test'], loc='upper left')
-plt.show()
+
+if not use_pretrained:
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('Model loss')
+    plt.ylabel('Loss')
+    plt.xlabel('Epoch')
+    plt.legend(['Train', 'Test'], loc='upper left')
+    plt.show()
 # x_test = train_generator.next()
 selected_idx = np.random.choice(range(x_test.shape[0]), 10, replace=False)
 selected = x_test[selected_idx]
