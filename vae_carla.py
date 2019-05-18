@@ -60,7 +60,7 @@ vae, vae_kl_loss = create_vae(latent_dim, return_kl_loss_op=True)
 def vae_loss(x, t_decoded):
     '''Total loss for the plain VAE'''
     beta = 1.0
-    sacle = 100.0
+    sacle = 1.0
     return sacle*K.mean(reconstruction_loss(x, t_decoded) + beta * vae_kl_loss)  # adjust losss scale
 
 
