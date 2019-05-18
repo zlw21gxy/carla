@@ -83,7 +83,7 @@ GROUND_Z = 0.22
 
 # Default environment configuration
 ENV_CONFIG = {
-    "log_images": False,  # log images in _read_observation().
+    "log_images": True,  # log images in _read_observation().
     "convert_images_to_video": False,  # convert log_images to videos. when "verbose" is True.
     "verbose": False,    # print measurement information; write out measurement json file.
 
@@ -91,7 +91,7 @@ ENV_CONFIG = {
     "framestack": 1,  # note: only [1, 2] currently supported
     "early_terminate_on_collision": True,
     "reward_function": "custom",
-    "render_x_res": 300,
+    "render_x_res": 288,
     "render_y_res": 96,
     #image_size
     "x_res": 96,  # cv2.resize()
@@ -130,8 +130,9 @@ atexit.register(cleanup)
 
 
 class CarlaEnv(gym.Env):
-    def __init__(self, config=ENV_CONFIG):
+    def __init__(self, config=ENV_CONFIG, enable_autopilot = False):
         self.config = config
+        self.enable_autopilot = enable_autopilot
         self.city = self.config["server_map"].split("/")[-1]
         if self.config["enable_planner"]:
             self.planner = Planner(self.city)
@@ -441,6 +442,9 @@ class CarlaEnv(gym.Env):
         if self.config["discrete_actions"]:
             action = DISCRETE_ACTIONS[int(action)]  # Carla action is 2D.
         assert len(action) == 2, "Invalid action {}".format(action)
+        if self.enable_autopilot:
+            action[0] = self.autopilot.brake if self.autopilot.brake < 0 else self.autopilot.throttle
+            action[1] = self.autopilot.steer
         if self.config["squash_action_logits"]:
             forward = 2 * float(sigmoid(action[0]) - 0.5)
             throttle = float(np.clip(forward, 0, 1))
@@ -551,6 +555,8 @@ class CarlaEnv(gym.Env):
         measurements, sensor_data = self.client.read_data()
 
         # Print some of the measurements.
+        if self.enable_autopilot:
+            self.autopilot = measurements.player_measurements.autopilot_control
         if self.config["verbose"]:
             print_measurements(measurements)
 
@@ -798,7 +804,7 @@ def collided_done(py_measurements):
 
 if __name__ == "__main__":
     for _ in range(2):
-        env = CarlaEnv()
+        env = CarlaEnv(enable_autopilot=True)
         obs = env.reset()      
         print(obs[0].shape) 
         start = time.time
@@ -809,7 +815,7 @@ if __name__ == "__main__":
         done = False
         i = 0
         total_reward = 0.0
-        while not done:
+        while 1:
             i += 1
             if ENV_CONFIG["discrete_actions"]:
                 obs, reward, done, info = env.step(1)

@@ -33,14 +33,14 @@ train_generator = train_datagen.flow_from_directory(
         # This is the target directory
         train_dir,
         # All images will be resized to 150x150
-        target_size=(150, 150),
+        target_size=(28, 28),
         batch_size=20,
         # Since we use binary_crossentropy loss, we need binary labels
         class_mode='binary')
 
 validation_generator = test_datagen.flow_from_directory(
         val_dir,
-        target_size=(150, 150),
+        target_size=(28, 28),
         batch_size=20,
         class_mode='binary')
 
@@ -142,46 +142,6 @@ latent_dim = 2
 epochs = 50
 
 
-def create_encoder(latent_dim):
-    '''
-    Creates a convolutional encoder model for MNIST images.
-
-    - Input for the created model are MNIST images.
-    - Output of the created model are the sufficient statistics
-      of the variational distriution q(t|x;phi), mean and log
-      variance.
-    '''
-    encoder_iput = layers.Input(shape=image_shape, name='image')
-
-    x = layers.Conv2D(32, 3, padding='same', activation='relu')(encoder_iput)
-    x = layers.Conv2D(64, 3, padding='same', activation='relu', strides=(2, 2))(x)
-    x = layers.Conv2D(64, 3, padding='same', activation='relu')(x)
-    x = layers.Conv2D(64, 3, padding='same', activation='relu')(x)
-    x = layers.Flatten()(x)
-    x = layers.Dense(32, activation='relu')(x)
-
-    t_mean = layers.Dense(latent_dim, name='t_mean')(x)
-    t_log_var = layers.Dense(latent_dim, name='t_log_var')(x)
-
-    return Model(encoder_iput, [t_mean, t_log_var], name='encoder')
-
-
-def create_decoder(latent_dim):
-    '''
-    Creates a (de-)convolutional decoder model for MNIST images.
-
-    - Input for the created model are latent vectors t.
-    - Output of the model are images of shape (28, 28, 1) where
-      the value of each pixel is the probability of being white.
-    '''
-    decoder_input = layers.Input(shape=(latent_dim,), name='t')
-
-    x = layers.Dense(12544, activation='relu')(decoder_input)
-    x = layers.Reshape((14, 14, 64))(x)
-    x = layers.Conv2DTranspose(32, 3, padding='same', activation='relu', strides=(2, 2))(x)
-    x = layers.Conv2D(1, 3, padding='same', activation='sigmoid', name='image')(x)
-
-    return Model(decoder_input, x, name='decoder')
 
 # VAE model = encoder + decoder
 # build encoder model
@@ -213,13 +173,6 @@ plot_model(decoder, to_file='vae_mlp_decoder.png', show_shapes=True)
 # instantiate VAE model
 outputs = decoder(encoder(inputs)[2])
 vae = Model(inputs, outputs, name='vae_mlp')
-
-
-
-
-
-
-
 
 
 
