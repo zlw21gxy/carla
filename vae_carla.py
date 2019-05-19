@@ -1,4 +1,3 @@
-import vae_unit as vae_util
 from vae_unit import load_mnist_data, plot_image_rows, load_carla_data
 import matplotlib.pyplot as plt
 from keras.losses import mse, binary_crossentropy
@@ -7,17 +6,14 @@ from keras import layers
 import keras
 from keras.models import Model, load_model
 import numpy as np
-from keras.preprocessing.image import ImageDataGenerator
-import glob
-import cv2
 use_pretrained = False
 epochs = 100
-latent_dim = 128
-# weight_file = 'carla_vae.h5'
-batch_size = 64
+latent_dim = 256
+from config import IMG_SIZE
+filepath = "/home/gu/project/ppo/ppo_carla/models/carla/carla_vae_model_beta_2_r_1100.hdf5"
+batch_size = 100
 from keras.callbacks import ModelCheckpoint
-# All images will be rescaled by 1./255
-
+import vae_unit as vae_util
 
 def create_vae(latent_dim, return_kl_loss_op=False):
     '''
@@ -37,7 +33,7 @@ def create_vae(latent_dim, return_kl_loss_op=False):
     decoder = vae_util.create_decoder(latent_dim)
     sampler = vae_util.create_sampler()
 
-    x = layers.Input(shape=(128, 128, 3), name='image')
+    x = layers.Input(shape=IMG_SIZE, name='image')
     t_mean, t_log_var = encoder(x)
     t = sampler([t_mean, t_log_var])
     t_decoded = decoder(t)
@@ -45,9 +41,7 @@ def create_vae(latent_dim, return_kl_loss_op=False):
     model = Model(x, t_decoded, name='vae')
 
     if return_kl_loss_op:
-        kl_loss = -0.5 * K.sum(1 + t_log_var \
-                               - K.square(t_mean) \
-                               - K.exp(t_log_var), axis=-1)
+        kl_loss = -0.5 * K.sum(1 + t_log_var - K.square(t_mean) - K.exp(t_log_var), axis=-1)
         return model, kl_loss
     else:
         return model
@@ -59,20 +53,32 @@ vae, vae_kl_loss = create_vae(latent_dim, return_kl_loss_op=True)
 
 def vae_loss(x, t_decoded):
     '''Total loss for the plain VAE'''
-    beta = 1.0
-    sacle = 1.0
-    return sacle*K.mean(reconstruction_loss(x, t_decoded) + beta * vae_kl_loss)  # adjust losss scale
-
-
+    beta = 2.0
+    scale = 1.0
+    # scale_r = 600
+    scale_r = 1100
+    return scale*K.mean(scale_r*reconstruction_loss(x, t_decoded) + beta * vae_kl_loss)  # adjust losss scale
+#
+#
 def reconstruction_loss(x, t_decoded):
     '''Reconstruction loss for the plain VAE'''
     return K.mean(K.square(x - t_decoded), axis=(1, 2, 3))  # average over images
 
+# def reconstruction_loss(x, t_decoded):
+#     '''Reconstruction loss for the plain VAE'''
+#     return K.sum(K.binary_crossentropy(
+#         K.batch_flatten(x),
+#         K.batch_flatten(t_decoded)), axis=-1)
 
 # x_train, x_test = load_carla_data(normalize=True, num=1000)
 x_train, x_test = load_carla_data(normalize=True)
-# Save the checkpoint in the /output folder
-filepath = "/home/gu/project/ppo/carla/models/carla/carla-cnn-best.hdf5"
+# (x_train,_), (x_test,_) = load_mnist_data(normalize=True)
+class SGDLearningRateTracker(keras.callbacks.Callback):
+    def on_epoch_end(self, epoch, logs={}):
+        optimizer = self.model.optimizer
+        # lr = K.eval(optimizer.lr * (1. / (1. + optimizer.decay * optimizer.iterations)))
+        # print('\nLR: {:.6f}\n'.format(lr))
+        print(K.eval(optimizer.iterations))
 
 # Keep only a single checkpoint, the best over test accuracy.
 checkpoint = ModelCheckpoint(filepath,
@@ -85,18 +91,15 @@ checkpoint = ModelCheckpoint(filepath,
 if use_pretrained:
     vae.load_weights(filepath)
 else:
-    # epochs = 50
-    learning_rate = 0.005
-    decay_rate = learning_rate / (epochs + 1)
-    # momentum = 0.8
-    # sgd = SGD(lr=learning_rate, momentum=momentum, decay=decay_rate, nesterov=False)
+    learning_rate = 0.001   # if we set lr to 0.005 network will blow up...that is...
+    # decay_rate = learning_rate / epochs
+    decay_rate = 1e-3
+    # decay_rate = 0
 
     adam = keras.optimizers.Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=None, decay=decay_rate, amsgrad=False)
     vae.compile(optimizer=adam, loss=vae_loss)
     history = vae.fit(x=x_train, y=x_train, epochs=epochs, batch_size=batch_size,
-            shuffle=True, validation_data=(x_test, x_test), verbose=2, callbacks=[checkpoint])
-
-    # vae.save_weights("carla_vae.h5")
+            shuffle=True, validation_data=(x_test, x_test), verbose=2, callbacks=[checkpoint])# , SGDLearningRateTracker()])
 
 
 def encode(model, images):
