@@ -6,14 +6,19 @@ from keras import layers
 import keras
 from keras.models import Model, load_model
 import numpy as np
-use_pretrained = False
-epochs = 100
-latent_dim = 256
 from config import IMG_SIZE
-filepath = "/home/gu/project/ppo/ppo_carla/models/carla/carla_vae_model_beta_2_r_1100.hdf5"
+# filepath = "/home/gu/project/ppo/ppo_carla/models/carla/carla_vae_model_beta_3_r_1100.hdf5"
 batch_size = 100
 from keras.callbacks import ModelCheckpoint
 import vae_unit as vae_util
+
+use_pretrained = False
+epochs = 100
+latent_dim = 256
+beta = 3.0
+scale = 1.0
+scale_r = 1100
+filepath = "/home/gu/project/ppo/ppo_carla/models/carla/ld_{}_beta_{}_r_{}.hdf5".format(latent_dim, beta, scale_r)
 
 def create_vae(latent_dim, return_kl_loss_op=False):
     '''
@@ -53,10 +58,6 @@ vae, vae_kl_loss = create_vae(latent_dim, return_kl_loss_op=True)
 
 def vae_loss(x, t_decoded):
     '''Total loss for the plain VAE'''
-    beta = 2.0
-    scale = 1.0
-    # scale_r = 600
-    scale_r = 1100
     return scale*K.mean(scale_r*reconstruction_loss(x, t_decoded) + beta * vae_kl_loss)  # adjust losss scale
 #
 #
