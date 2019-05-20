@@ -71,8 +71,8 @@ class CarlaModel(Model):
                     stride,
                     activation_fn=activation,
                     scope="conv{}".format(i))
-                vision_in = tf.layers.batch_normalization(
-                    vision_in, training=input_dict["is_training"])
+                #vision_in = tf.layers.batch_normalization(
+                 #   vision_in, training=input_dict["is_training"])
 
             out_size, kernel, stride = convs[-1]
             vision_in = slim.conv2d(
@@ -128,34 +128,6 @@ class CarlaModel(Model):
                                                  activation_fn=None,scope="value_out")
         return tf.reshape(output, [-1])
 
-    def value_function(self):
-        """Builds the value function output.
-
-        This method can be overridden to customize the implementation of the
-        value function (e.g., not sharing hidden layers).
-
-        Returns:
-            Tensor of size [BATCH_SIZE] for the value function.
-        """
-        hiddens = [400, 300]
-        with tf.name_scope("carla_out"):
-            i = 1
-            for size in hiddens:
-                last_layer = slim.fully_connected(
-                    last_layer,
-                    size,
-                    weights_initializer=xavier_initializer(),
-                    activation_fn=tf.nn.elu,
-                    scope="value_function{}".format(i))
-                i += 1
-            output = slim.fully_connected(
-                last_layer,
-                1,
-                weights_initializer=normc_initializer(0.01),
-                activation_fn=None,
-                scope="value_out")
-        # return output
-        return tf.reshape(output, [-1])
 
 def register_carla_model():
     ModelCatalog.register_custom_model("carla", CarlaModel)
