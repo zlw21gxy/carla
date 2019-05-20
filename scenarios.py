@@ -118,7 +118,7 @@ TOWN2_ONE_CURVE = [
 ]
 
 TOWN2_CUSTOM = [
-    build_scenario("Town02", start, end, 100, 0, 900, [0])
+    build_scenario("Town02", start, end, 60, 0, 900, [0])
     for (start, end) in POSES_TOWN2_CUSTOM
 ]
 

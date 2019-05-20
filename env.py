@@ -508,9 +508,9 @@ class CarlaEnv(gym.Env):
         self.num_steps += 1
         image = self.preprocess_image(image)
         # print(image.shape)
-        print(py_measurements["next_command"])
+        # print(py_measurements["next_command"])
          #print(self.end_coord)
-        print(py_measurements["distance_to_goal"])
+        # print(py_measurements["distance_to_goal"])
         return (self.encode_obs(image, py_measurements), reward, done,
                 py_measurements)
 
