@@ -25,7 +25,7 @@ except Exception:
 import gym
 from gym.spaces import Box, Discrete, Tuple
 
-from scenarios import DEFAULT_SCENARIO, LANE_KEEP, TOWN2_STRAIGHT, TOWN2_ONE_CURVE, TOWN2_NAVIGATION #, TOWN2_ONE_CURVE_CUSTOM
+from scenarios import DEFAULT_SCENARIO, LANE_KEEP, TOWN2_STRAIGHT, TOWN2_ONE_CURVE, TOWN2_CUSTOM
 
 # Set this where you want to save image outputs (or empty string to disable)
 CARLA_OUT_PATH = os.environ.get("CARLA_OUT", os.path.expanduser("~/carla_out"))
@@ -81,22 +81,17 @@ GROUND_Z = 0.22
 ENV_CONFIG = {
     "log_images": True,  # log images in _read_observation().
     "convert_images_to_video": False,  # convert log_images to videos. when "verbose" is True.
-    "verbose": False,    # print measurement information; write out measurement json file.
-
+    "verbose": False,    # print measurement information; write out measurement json file
     "enable_planner": True,
     "framestack": 1,  # note: only [1, 2] currently supported
     "early_terminate_on_collision": True,
     "reward_function": "custom",
     "render_x_res": 288,
     "render_y_res": 96,
-    #image_size
     "x_res": 96,  # cv2.resize()
     "y_res": 96,  # cv2.resize()
-
     "server_map": "/Game/Maps/Town02",
-
-    #scenarios
-    "scenarios": [LANE_KEEP],  # [LANE_KEEP]
+    "scenarios": TOWN2_CUSTOM,  # [LANE_KEEP]
     "use_depth_camera": False,  # use depth instead of rgb.
     "discrete_actions": True,
     "squash_action_logits": False,
@@ -110,8 +105,6 @@ for i in [-0.5, 0, 0.7]:
     for j in [-0.9, -0.6, -0.3, 0, 0.3, 0.6, 0.9]:
         DISCRETE_ACTIONS[k] = [i, j]
         k += 1
-
-
 
 live_carla_processes = set()  # Carla Server
 
@@ -274,8 +267,6 @@ class CarlaEnv(gym.Env):
             NumberOfPedestrians=self.scenario["num_pedestrians"],
             WeatherId=self.weather)
         settings.randomize_seeds()
-
-
 
         # if self.config["encode_measurement"]:
         #     camera1 = Camera("CameraDepth", PostProcessing="Depth")
@@ -629,7 +620,6 @@ class CarlaEnv(gym.Env):
             "x_orient": cur.transform.orientation.x,
             "y_orient": cur.transform.orientation.y,
             "forward_speed": cur.forward_speed*3.6,
-            "forward_speed": 3.6*cur.forward_speed,
             "distance_to_goal": distance_to_goal,
             "distance_to_goal_euclidean": distance_to_goal_euclidean,
             "collision_vehicles": cur.collision_vehicles,
@@ -852,8 +842,9 @@ if __name__ == "__main__":
         i = 0
         total_reward = 0.0
         while 1:
+            print(i)
             i += 1
-            if i > 1200:
+            if i > 800:
                 i = 0
                 env.reset()
             if ENV_CONFIG["discrete_actions"]:
