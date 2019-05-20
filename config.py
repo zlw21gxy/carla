@@ -1,6 +1,6 @@
 # mode = "mnist"
-# mode = "carla"
-mode = "check"
+mode = "carla"
+# mode = "check"
 if mode == "mnist":
     IMG_SIZE=(28, 28, 1)
     epochs = 15
@@ -13,19 +13,19 @@ if mode == "mnist":
     filepath = "/home/gu/project/ppo/ppo_carla/models/mnist/ld_{}_beta_{}_r_{}.hdf5".format(latent_dim, beta, scale_r)
 elif mode == "carla":
     IMG_SIZE=(128, 128, 3)
-    epochs = 100
+    epochs = 200
     latent_dim = 256
-    beta = 10
+    beta = 1
     scale = 1/beta
     scale_r = 1100
     lr = 1e-5
     use_pretrained = False
-    filepath = "/home/gu/project/ppo/ppo_carla/models/carla/ld_{}_beta_{}_r_{}.hdf5".format(latent_dim, beta, scale_r)
+    filepath = "/home/gu/project/ppo/ppo_carla/models/carla/ld_{}_beta_{}_r_{}_lr_{}.hdf5".format(latent_dim, beta, scale_r, lr)
 else:
     IMG_SIZE=(128, 128, 3)
     epochs = 100
     latent_dim = 256
-    beta = 10
+    beta = 1
     scale = 1/beta
     scale_r = 1100
     lr = 1e-5
