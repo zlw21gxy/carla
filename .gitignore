@@ -19,7 +19,7 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
-
+data/
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
@@ -30,7 +30,9 @@ pip-delete-this-directory.txt
 .cache
 nosetests.xml
 coverage.xml
-
+models/
+*core*
+*.h5
 # Translations
 *.mo
 
@@ -45,6 +47,7 @@ coverage.xml
 # Django stuff:
 *.log
 *.pot
-
+core*/
+.idea/
 # Sphinx documentation
 docs/_build/

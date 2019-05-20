@@ -38,13 +38,14 @@ run_experiments({
             "model": {
                 "custom_model": "carla",   # defined in model
                 "use_lstm": True,
+                # "lstm_use_prev_action_reward": True,
                 "custom_options": {
                     "image_shape": [
                         env_config["x_res"], env_config["y_res"], 7
                     ],
                 }
             },
-            "num_workers": 12,
+            "num_workers": 10,
             "train_batch_size": 2400,
             "sample_batch_size": 200, # Size of batches collected from each worker
             "lambda": 0.95,
@@ -57,3 +58,4 @@ run_experiments({
         },
     },
 })
+# /tmp/ray/session_2019-05-15_20-15-57_14951/tmpcpypfea8.json

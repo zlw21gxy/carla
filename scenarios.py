@@ -31,7 +31,7 @@ DEFAULT_SCENARIO = build_scenario(
 LANE_KEEP = build_scenario(
     city="Town02",
     start=36,
-    end=40,
+    end=38,
     vehicles=0,
     pedestrians=0,
     max_steps=2000,
@@ -79,6 +79,9 @@ POSES_TOWN2_NAV = [[19, 66], [79, 14], [19, 57], [23, 1], [53, 76], [42, 13], [
                    [5, 57], [70, 73], [46, 67], [57, 50], [61, 49], [21, 12],
                    [51, 81], [77, 68], [56, 65], [43, 54]]
 
+
+POSES_TOWN2_CUSTOM = POSES_TOWN2_ONE_CURVE + POSES_TOWN2_NAV
+
 TOWN1_STRAIGHT = [
     build_scenario("Town01", start, end, 0, 0, 500, TEST_WEATHERS)
     for (start, end) in POSES_TOWN1_STRAIGHT
@@ -110,8 +113,13 @@ TOWN2_STRAIGHT_DYNAMIC = [
 ]
 
 TOWN2_ONE_CURVE = [
-    build_scenario("Town02", start, end, 100, 0, 1000, [0])
+    build_scenario("Town02", start, end, 1000, 0, 1000, [0])
     for (start, end) in POSES_TOWN2_ONE_CURVE
+]
+
+TOWN2_CUSTOM = [
+    build_scenario("Town02", start, end, 0, 0, 1000, [0])
+    for (start, end) in POSES_TOWN2_CUSTOM
 ]
 
 TOWN2_NAVIGATION = [
