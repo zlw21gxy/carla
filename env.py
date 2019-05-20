@@ -28,7 +28,7 @@ from gym.spaces import Box, Discrete, Tuple
 
 
 
-from scenarios import DEFAULT_SCENARIO, LANE_KEEP, TOWN2_ONE_CURVE, TOWN2_NAVIGATION #, TOWN2_ONE_CURVE_CUSTOM
+from scenarios import DEFAULT_SCENARIO, LANE_KEEP, TOWN2_STRAIGHT, TOWN2_ONE_CURVE, TOWN2_NAVIGATION #, TOWN2_ONE_CURVE_CUSTOM
 
 
 # Set this where you want to save image outputs (or empty string to disable)
@@ -100,7 +100,7 @@ ENV_CONFIG = {
     "server_map": "/Game/Maps/Town02",
 
     #scenarios
-    "scenarios": TOWN2_ONE_CURVE,  # [LANE_KEEP]
+    "scenarios": [LANE_KEEP],  # [LANE_KEEP]
     "use_depth_camera": False,  # use depth instead of rgb.
     "discrete_actions": True,
     "squash_action_logits": False,
@@ -330,9 +330,9 @@ class CarlaEnv(gym.Env):
 
         # Setup start and end positions
         scene = self.client.load_settings(settings)
-        positions = scene.player_start_spots
-        self.start_pos = positions[self.scenario["start_pos_id"]]
-        self.end_pos = positions[self.scenario["end_pos_id"]]
+        self.positions = scene.player_start_spots
+        self.start_pos = self.positions[self.scenario["start_pos_id"]]
+        self.end_pos = self.positions[self.scenario["end_pos_id"]]
         self.start_coord = [
             self.start_pos.location.x, self.start_pos.location.y
         ]
@@ -521,6 +521,9 @@ class CarlaEnv(gym.Env):
         self.num_steps += 1
         image = self.preprocess_image(image)
         # print(image.shape)
+        print(py_measurements["next_command"])
+         #print(self.end_coord)
+        print(py_measurements["distance_to_goal"])
         return (self.encode_obs(image, py_measurements), reward, done,
                 py_measurements)
 
@@ -600,6 +603,7 @@ class CarlaEnv(gym.Env):
 
         if next_command == "REACH_GOAL":
             distance_to_goal = 0.0  # avoids crash in planner
+            self.end_pos = self.positions[self.scenario["end_pos_id"]]
         elif self.config["enable_planner"]:
             distance_to_goal = self.planner.get_shortest_path_distance([
                 cur.transform.location.x, cur.transform.location.y, GROUND_Z
@@ -628,7 +632,7 @@ class CarlaEnv(gym.Env):
             "y": cur.transform.location.y,
             "x_orient": cur.transform.orientation.x,
             "y_orient": cur.transform.orientation.y,
-            "forward_speed": cur.forward_speed,
+            "forward_speed": cur.forward_speed*3.6,
             "distance_to_goal": distance_to_goal,
             "distance_to_goal_euclidean": distance_to_goal_euclidean,
             "collision_vehicles": cur.collision_vehicles,
@@ -736,6 +740,40 @@ def compute_reward_custom(env, prev, current):
     return reward
 
 
+def compute_reward_custom_2(env, prev, current):
+    reward = 0.0
+
+    cur_dist = current["distance_to_goal"]
+    prev_dist = prev["distance_to_goal"]
+
+    if env.config["verbose"]:
+        print("Cur dist {}, prev dist {}".format(cur_dist, prev_dist))
+
+    # Distance travelled toward the goal in m
+    reward += 0.5 * np.clip(prev_dist - cur_dist, -12.0, 12.0)
+
+    # Speed reward, up 30.0 (km/h)
+    reward += np.clip(current["forward_speed"], 0.0, 30.0) / 10
+    if current["forward_speed"] > 40:
+        reward -= (current["forward_speed"] - 40)/12
+    # New collision damage
+    new_damage = (
+        current["collision_vehicles"] + current["collision_pedestrians"] +
+        current["collision_other"] - prev["collision_vehicles"] -
+        prev["collision_pedestrians"] - prev["collision_other"])
+    if new_damage:
+        reward -= 10 + 3*current["forward_speed"]
+
+    reward -= np.clip(10 * current["forward_speed"] * int(current["intersection_offroad"] > 0.001), 0, 50)   # [0, 1]
+    reward -= 4 * current["intersection_otherlane"]  # [0, 1]
+    reward -= 0.03 if current["forward_speed"] < 1 else 0
+
+    if current["next_command"] == "REACH_GOAL":
+        reward += 200.0
+        print('bro, you reach the goal, well done!!!')
+
+    return reward
+
 def compute_reward_lane_keep(env, prev, current):
     reward = 0.0
 
@@ -762,6 +800,7 @@ def compute_reward_lane_keep(env, prev, current):
 REWARD_FUNCTIONS = {
     "corl2017": compute_reward_corl2017,
     "custom": compute_reward_custom,
+    "custom2": compute_reward_custom,
     "lane_keep": compute_reward_lane_keep,
 }
 def compute_reward(env, prev, current):
@@ -817,6 +856,9 @@ if __name__ == "__main__":
         total_reward = 0.0
         while 1:
             i += 1
+            if i > 1200:
+                i = 0
+                env.reset()
             if ENV_CONFIG["discrete_actions"]:
                 obs, reward, done, info = env.step(1)
             else:

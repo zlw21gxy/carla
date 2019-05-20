@@ -13,9 +13,9 @@ if mode == "mnist":
     filepath = "/home/gu/project/ppo/ppo_carla/models/mnist/ld_{}_beta_{}_r_{}.hdf5".format(latent_dim, beta, scale_r)
 elif mode == "carla":
     IMG_SIZE=(128, 128, 3)
-    epochs = 200
+    epochs = 300
     latent_dim = 256
-    beta = 1
+    beta = 3
     scale = 1/beta
     scale_r = 1100
     lr = 1e-5

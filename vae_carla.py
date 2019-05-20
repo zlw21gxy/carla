@@ -86,7 +86,7 @@ if use_pretrained:
     vae.load_weights(filepath)
 else:
     learning_rate = lr  # if we set lr to 0.005 network will blow up...that is...
-    decay_rate = 0.5e-4
+    decay_rate = 0
     adam = keras.optimizers.Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=None, decay=decay_rate,
                                  amsgrad=False)
     vae.compile(optimizer=adam, loss=vae_loss)

@@ -31,7 +31,7 @@ DEFAULT_SCENARIO = build_scenario(
 LANE_KEEP = build_scenario(
     city="Town02",
     start=36,
-    end=40,
+    end=38,
     vehicles=0,
     pedestrians=0,
     max_steps=2000,
@@ -113,7 +113,7 @@ TOWN2_STRAIGHT_DYNAMIC = [
 ]
 
 TOWN2_ONE_CURVE = [
-    build_scenario("Town02", start, end, 10, 0, 1000, [0])
+    build_scenario("Town02", start, end, 1000, 0, 1000, [0])
     for (start, end) in POSES_TOWN2_ONE_CURVE
 ]
 
