@@ -488,7 +488,7 @@ class CarlaEnv(gym.Env):
 
         # done or not
         done = (self.num_steps > self.scenario["max_steps"]
-                or py_measurements["next_command"] == "REACH_GOAL"
+                # or py_measurements["next_command"] == "REACH_GOAL"
                 or (self.config["early_terminate_on_collision"]
                     and collided_done(py_measurements)))
 

@@ -32,7 +32,7 @@ run_experiments({
         "run": "PPO",
         "env": CarlaEnv,
         "checkpoint_freq": 2,
-        "restore":"/home/gu/ray_results/carla/PPO_CarlaEnv_0_2019-05-17_15-17-58st69mirt/checkpoint_350/checkpoint-350",
+        "restore":"/home/gu/ray_results/carla/PPO_CarlaEnv_0_2019-05-19_15-03-39t6mjcwy2/checkpoint_678/checkpoint-678",
         "config": {
             "env_config": env_config,
             "model": {
@@ -49,10 +49,10 @@ run_experiments({
             "sample_batch_size": 200, # Size of batches collected from each worker
             "lambda": 0.95,
             "clip_param": 0.2,
-            "num_sgd_iter": 27,
+            "num_sgd_iter": 24,
             "vf_share_layers": True,
-            "lr": 0.0005,
-            "sgd_minibatch_size": 300,
+            "lr": 0.0001,
+            "sgd_minibatch_size": 400,
             "num_gpus": 3,
         },
     },
