@@ -6,10 +6,10 @@ from keras import layers
 import keras
 from keras.models import Model, load_model
 import numpy as np
-from config import IMG_SIZE, mode, epochs, latent_dim, beta, scale, scale_r, lr, use_pretrained, filepath
+from config import IMG_SIZE, mode, epochs, latent_dim, beta, scale, scale_r, lr, use_pretrained, filepath, batch_size
 
 # filepath = "/home/gu/project/ppo/ppo_carla/models/carla/carla_vae_model_beta_3_r_1100.hdf5"
-batch_size = 100
+
 from keras.callbacks import ModelCheckpoint
 import vae_unit as vae_util
 
@@ -67,7 +67,7 @@ def reconstruction_loss(x, t_decoded):
 #         K.batch_flatten(t_decoded)), axis=-1)
 
 
-if mode == "carla":
+if mode[:5] == "carla":
     x_train, x_test = load_carla_data(normalize=True)
 else:
     (x_train, _), (x_test, _) = load_mnist_data(normalize=True)
@@ -83,6 +83,7 @@ checkpoint = ModelCheckpoint(filepath,
 # Create plain VAE model and associated KL divergence loss operation
 vae, vae_kl_loss = create_vae(latent_dim, return_kl_loss_op=True)
 if use_pretrained:
+    print(filepath)
     vae.load_weights(filepath)
 else:
     learning_rate = lr  # if we set lr to 0.005 network will blow up...that is...

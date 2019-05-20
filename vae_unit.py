@@ -8,7 +8,7 @@ from keras.models import Model, Sequential
 
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
-
+from sklearn.model_selection import train_test_split
 import glob
 import cv2
 from keras.datasets import mnist
@@ -16,7 +16,7 @@ from keras.datasets import mnist
 import matplotlib.pyplot as plt
 
 # Shape of MNIST images
-from config import IMG_SIZE
+from config import IMG_SIZE, mode
 image_shape = IMG_SIZE
 
 
@@ -48,7 +48,7 @@ def create_encoder(latent_dim):
         x = layers.Dense(48, activation='relu')(x)
 
     elif image_shape == (128, 128, 3):
-        kwargs = dict(strides=(2, 2), activation="elu", padding="same")
+        kwargs = dict(strides=(2, 2), activation="relu", padding="same")
         kwargs2 = dict(strides=(1, 1), activation="elu", padding="same")
         kwargs3 = dict(strides=(1, 1), padding="same")
         x = layers.Conv2D(48, 3, **kwargs)(encoder_iput)
@@ -58,7 +58,7 @@ def create_encoder(latent_dim):
         x = layers.Conv2D(512, 3, **kwargs)(x)
         # x = keras.layers.GlobalAveragePooling2D()(x)
         x = layers.Flatten()(x)
-        x = layers.Dense(512, activation="elu")(x)
+        x = layers.Dense(512, activation="relu")(x)
         # x = layers.Dense(256, activation='elu')(x)
 
     t_mean = layers.Dense(latent_dim, name='t_mean')(x)
@@ -90,7 +90,7 @@ def create_decoder(latent_dim):
         # x = layers.Conv2D(1, 3, padding='same', activation="sigmoid", name='image')(x)
 
     elif image_shape == (128, 128, 3):
-        kwargs = dict(strides=(2, 2), activation="elu", padding="same")
+        kwargs = dict(strides=(2, 2), activation="relu", padding="same")
         kwargs2 = dict(strides=(4, 4), activation="elu", padding="same")
         kwargs3 = dict(strides=(1, 1), padding="same")
         kwargs4 = dict(strides=(2, 2), padding="same")
@@ -189,13 +189,18 @@ def load_mnist_data(normalize=False):
     if normalize:
         x_train = x_train.astype('float32') / 255.
         x_test = x_test.astype('float32') / 255.
-
+        x_train -= 0.5  # rescale to [-0.5 0.5]
+        x_test -= 0.5
     return (x_train, y_train), (x_test, y_test)
 
 
 def load_carla_data(normalize=False, num=None):
-    train_dir = "/home/gu/carla_out/train/*.jpg"
-    val_dir = "/home/gu/carla_out/val/*.jpg"
+    if mode == "carla":
+        train_dir = "/home/gu/carla_out/train/*.jpg"
+    elif mode == "carla_high":
+        train_dir = "/home/gu/carla_out/train_high/*.jpg"
+    else:
+        print("wrong mode")
     file_dir = glob.glob(train_dir)
     if not num:
         num = len(file_dir)
@@ -207,28 +212,25 @@ def load_carla_data(normalize=False, num=None):
         if i > num:
             break
         i += 1
-
-    x_train = np.stack(images_train)
-
-    images_val = [cv2.resize(cv2.imread(file), image_shape, interpolation=cv2.INTER_AREA)
-                    for file in glob.glob(val_dir)]
-    x_test = np.stack(images_val)
-
+    x_train, x_test = train_test_split(np.stack(images_train), test_size=1649)
     if normalize:
         x_train = x_train.astype('float32') / 255.
         x_test = x_test.astype('float32') / 255.
+        x_train -= 0.5  # rescale to [-0.5 0.5]
+        x_test -= 0.5
+    return x_train[:, :, :, ::-1], x_test[:, :, :, ::-1]  # convert BGR to RGB
 
-    return x_train[:,:,:,::-1], x_test[:,:,:,::-1]
 
 def plot_image_rows(images_list, title_list):
     rows = len(images_list)
     cols = len(images_list[0])
-    # plt.figure(figsize=(cols, 3))
+
     def plot_image_row(images, title):
-        plt.figure(figsize=(cols, 2))
+        plt.figure(figsize=(cols, 1))
         plt.gcf().suptitle(title)
         for i, img in enumerate(images):
             plt.subplot(rows, cols, i + 1)
+            img += 0.5  # rescale to [0, 255]
             img = img*255
             num_channel = img.shape[-1]
             if num_channel == 1:

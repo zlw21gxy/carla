@@ -86,8 +86,8 @@ ENV_CONFIG = {
     "framestack": 1,  # note: only [1, 2] currently supported
     "early_terminate_on_collision": True,
     "reward_function": "custom",
-    "render_x_res": 288,
-    "render_y_res": 96,
+    "render_x_res": 400,
+    "render_y_res": 300,
     "x_res": 96,  # cv2.resize()
     "y_res": 96,  # cv2.resize()
     "server_map": "/Game/Maps/Town02",
@@ -296,8 +296,8 @@ class CarlaEnv(gym.Env):
         camera2 = Camera("CameraRGB")
         camera2.set_image_size(self.config["render_x_res"],
                                 self.config["render_y_res"])
-        camera2.set(FOV=120)
-        camera2.set_position(0.5, 0.0, 1.6)
+        camera2.set(FOV=110)
+        camera2.set_position(1.2, 0.0, 1.7)
         settings.add_sensor(camera2)
 
         if self.config["use_seg"]:
@@ -842,7 +842,7 @@ if __name__ == "__main__":
         i = 0
         total_reward = 0.0
         while 1:
-            print(i)
+            # print(i)
             i += 1
             if i > 900:
                 i = 0
