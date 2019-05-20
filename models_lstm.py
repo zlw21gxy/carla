@@ -50,10 +50,8 @@ class CarlaModel(Model):
             [1024, [8, 8], 1],
         ])
 
-        hiddens = options.get("fcnet_hiddens", [64])
+        hiddens = options.get("fcnet_hiddens", [700, 100])
         fcnet_activation = options.get("fcnet_activation", "elu")
-        # print(">>>>>>>>>", num_outputs)
-        # print(options)
         if fcnet_activation == "tanh":
             activation = tf.nn.tanh
         elif fcnet_activation == "relu":
@@ -71,6 +69,7 @@ class CarlaModel(Model):
                     out_size,
                     kernel,
                     stride,
+                    activation_fn=activation,
                     scope="conv{}".format(i))
                 vision_in = tf.layers.batch_normalization(
                     vision_in, training=input_dict["is_training"])
@@ -81,6 +80,7 @@ class CarlaModel(Model):
                 out_size,
                 kernel,
                 stride,
+                activation_fn=activation,
                 padding="VALID",
                 scope="conv_out")
             vision_in = tf.squeeze(vision_in, [1, 2])
@@ -115,6 +115,18 @@ class CarlaModel(Model):
 
         return output, last_layer
 
+    def value_function(self):
+        hiddens = [400, 300]
+        last_layer = self.last_layer
+        with tf.name_scope("value_function"):
+            i = 0
+            for size in hiddens:
+                last_layer = slim.fully_connected(last_layer, size, weights_initializer=xavier_initializer(),
+                                                 activation_fn=tf.nn.elu,scope="value_function{}".format(i))
+                i += 1
+            output = slim.fully_connected(last_layer, 1, weights_initializer=normc_initializer(0.01),
+                                                 activation_fn=None,scope="value_out")
+        return tf.reshape(output, [-1])
 
     def value_function(self):
         """Builds the value function output.

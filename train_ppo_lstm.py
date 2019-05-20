@@ -4,7 +4,7 @@ from __future__ import print_function
 
 import ray
 from ray.tune import run_experiments
-
+from ray import tune
 from env import CarlaEnv, ENV_CONFIG
 # from models import register_carla_model
 from models_lstm import register_carla_model
@@ -31,9 +31,8 @@ run_experiments({
     "carla": {
         "run": "PPO",
         "env": CarlaEnv,
-        "checkpoint_freq": 5,
-        # "use_lstm": True,
-        # "restore":"/home/gu/ray_results/carla/PPO_CarlaEnv_0_2019-05-15_12-26-41z6llpae8/checkpoint_1030/checkpoint-1030",
+        "checkpoint_freq": 2,
+        "restore":"/home/gu/ray_results/carla/PPO_CarlaEnv_0_2019-05-19_15-03-39t6mjcwy2/checkpoint_678/checkpoint-678",
         "config": {
             "env_config": env_config,
             "model": {
@@ -48,14 +47,14 @@ run_experiments({
             },
             "num_workers": 10,
             "train_batch_size": 2400,
-            "sample_batch_size": 120,
+            "sample_batch_size": 200, # Size of batches collected from each worker
             "lambda": 0.95,
             "clip_param": 0.2,
-            "num_sgd_iter": 20,
+            "num_sgd_iter": 24,
             "vf_share_layers": True,
             "lr": 0.0001,
-            "sgd_minibatch_size": 64,
-            "num_gpus": 2,
+            "sgd_minibatch_size": 400,
+            "num_gpus": 3,
         },
     },
 })

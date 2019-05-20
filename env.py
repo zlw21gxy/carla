@@ -25,11 +25,7 @@ except Exception:
 import gym
 from gym.spaces import Box, Discrete, Tuple
 
-
-
-
 from scenarios import DEFAULT_SCENARIO, LANE_KEEP, TOWN2_STRAIGHT, TOWN2_ONE_CURVE, TOWN2_NAVIGATION #, TOWN2_ONE_CURVE_CUSTOM
-
 
 # Set this where you want to save image outputs (or empty string to disable)
 CARLA_OUT_PATH = os.environ.get("CARLA_OUT", os.path.expanduser("~/carla_out"))
@@ -76,7 +72,7 @@ COMMAND_ORDINAL = {
 }
 
 # Number of retries if the server doesn't respond
-RETRIES_ON_ERROR = 17
+RETRIES_ON_ERROR = 7
 
 # Dummy Z coordinate to use when we only care about (x, y)
 GROUND_Z = 0.22
@@ -208,7 +204,7 @@ class CarlaEnv(gym.Env):
         self.server_process = subprocess.Popen(
             [
                 SERVER_BINARY, self.config["server_map"], "-windowed",
-                "-ResX=800", "-ResY=600", "-carla-server", "-benchmark -fps=10", #: to run the simulation at a fixed time-step of 0.1 seconds
+                "-ResX=400", "-ResY=300", "-carla-server", "-benchmark -fps=10", #: to run the simulation at a fixed time-step of 0.1 seconds
                 "-carla-world-port={}".format(self.server_port)
             ],
             preexec_fn=os.setsid,
@@ -496,7 +492,7 @@ class CarlaEnv(gym.Env):
 
         # done or not
         done = (self.num_steps > self.scenario["max_steps"]
-                or py_measurements["next_command"] == "REACH_GOAL"
+                # or py_measurements["next_command"] == "REACH_GOAL"
                 or (self.config["early_terminate_on_collision"]
                     and collided_done(py_measurements)))
 
@@ -633,6 +629,7 @@ class CarlaEnv(gym.Env):
             "x_orient": cur.transform.orientation.x,
             "y_orient": cur.transform.orientation.y,
             "forward_speed": cur.forward_speed*3.6,
+            "forward_speed": 3.6*cur.forward_speed,
             "distance_to_goal": distance_to_goal,
             "distance_to_goal_euclidean": distance_to_goal_euclidean,
             "collision_vehicles": cur.collision_vehicles,
@@ -724,7 +721,7 @@ def compute_reward_custom(env, prev, current):
     # print(current["collision_other"], current["collision_vehicles"], current["collision_pedestrians"])
     # 0.0 41168.109375 0.0
     if new_damage:
-        reward -= 100.0
+        reward -= 15 + current["forward_speed"] * 3
 
     # Sidewalk intersection
     reward -= np.clip(10 * current["forward_speed"] * int(current["intersection_offroad"] > 0.001), 0, 50)   # [0, 1]
