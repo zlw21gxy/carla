@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 
 # Shape of MNIST images
 from config import IMG_SIZE, mode
+
 image_shape = IMG_SIZE
 
 
@@ -48,17 +49,17 @@ def create_encoder(latent_dim):
         x = layers.Dense(48, activation='relu')(x)
 
     elif image_shape == (128, 128, 3):
-        kwargs = dict(strides=(2, 2), activation="relu", padding="same")
+        kwargs = dict(strides=(2, 2), activation="elu", padding="same")
         kwargs2 = dict(strides=(1, 1), activation="elu", padding="same")
         kwargs3 = dict(strides=(1, 1), padding="same")
         x = layers.Conv2D(48, 3, **kwargs)(encoder_iput)
         x = layers.Conv2D(64, 3, **kwargs)(x)
         x = layers.Conv2D(72, 3, **kwargs)(x)
         x = layers.Conv2D(256, 3, **kwargs)(x)
-        x = layers.Conv2D(512, 3, **kwargs)(x)
-        # x = keras.layers.GlobalAveragePooling2D()(x)
-        x = layers.Flatten()(x)
-        x = layers.Dense(512, activation="relu")(x)
+        x = layers.Conv2D(600, 3, **kwargs)(x)
+        x = keras.layers.GlobalAveragePooling2D()(x)
+        # x = layers.Flatten()(x)
+        x = layers.Dense(512, activation="elu")(x)
         # x = layers.Dense(256, activation='elu')(x)
 
     t_mean = layers.Dense(latent_dim, name='t_mean')(x)
@@ -90,18 +91,18 @@ def create_decoder(latent_dim):
         # x = layers.Conv2D(1, 3, padding='same', activation="sigmoid", name='image')(x)
 
     elif image_shape == (128, 128, 3):
-        kwargs = dict(strides=(2, 2), activation="relu", padding="same")
+        kwargs = dict(strides=(2, 2), activation="elu", padding="same")
         kwargs2 = dict(strides=(4, 4), activation="elu", padding="same")
         kwargs3 = dict(strides=(1, 1), padding="same")
         kwargs4 = dict(strides=(2, 2), padding="same")
         x = layers.Dense(1024, activation='elu')(decoder_input)
         x = layers.Reshape((4, 4, 64))(x)
-        x = layers.Conv2DTranspose(256, 3, **kwargs)(x)
-        x = layers.Conv2DTranspose(128, 3, **kwargs)(x)
-        x = layers.Conv2DTranspose(64, 3, **kwargs)(x)
+        x = layers.Conv2DTranspose(48, 3, **kwargs)(x)
         x = layers.Conv2DTranspose(48, 3, **kwargs)(x)
         x = layers.Conv2DTranspose(32, 3, **kwargs)(x)
-        x = layers.Conv2D(3, 3, **kwargs3)(x)
+        x = layers.Conv2DTranspose(24, 3, **kwargs)(x)
+        x = layers.Conv2DTranspose(3, 3, **kwargs)(x)
+        # x = layers.Conv2D(3, 3, **kwargs3)(x)
     return Model(decoder_input, x, name='decoder')
 
 
@@ -231,10 +232,10 @@ def plot_image_rows(images_list, title_list):
         for i, img in enumerate(images):
             plt.subplot(rows, cols, i + 1)
             img += 0.5  # rescale to [0, 255]
-            img = img*255
+            img = img * 255
             num_channel = img.shape[-1]
             if num_channel == 1:
-                plt.imshow(np.clip(img[:,:,0].astype("int32"), 0, 255))
+                plt.imshow(np.clip(img[:, :, 0].astype("int32"), 0, 255))
             else:
                 plt.imshow(np.clip(img.astype("int32"), 0, 255))
             plt.axis('off')
