@@ -844,7 +844,7 @@ if __name__ == "__main__":
         while 1:
             print(i)
             i += 1
-            if i > 800:
+            if i > 900:
                 i = 0
                 env.reset()
             if ENV_CONFIG["discrete_actions"]:
