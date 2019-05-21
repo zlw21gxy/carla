@@ -57,7 +57,7 @@ def create_encoder(latent_dim):
         x = layers.Conv2D(128, 3, **kwargs)(x)
         x = layers.Conv2D(256, 3, **kwargs)(x)
         x = layers.Conv2D(512, 3, **kwargs)(x)
-        x = layers.Conv2D(700, 4, **kwargs2)(x)
+        x = layers.Conv2D(700, 4, **kwargs2)(x)  # replace mlp (?,4,4,512) (?,1,1,700)
         x = layers.Flatten()(x)
 
     t_mean = layers.Dense(latent_dim, name='t_mean')(x)
@@ -197,7 +197,7 @@ def load_carla_data(normalize=False, num=None):
     if mode == "carla":
         train_dir = "/home/gu/carla_out/train/*.jpg"
     elif mode == "carla_high":
-        train_dir = "/home/gu/carla_out/train_high/*.jpg"
+        train_dir = "/home/gu/carla_out/CameraRGB/*.jpg"
     else:
         print("wrong mode")
     file_dir = glob.glob(train_dir)
@@ -213,10 +213,10 @@ def load_carla_data(normalize=False, num=None):
         i += 1
     x_train, x_test = train_test_split(np.stack(images_train), train_size=num-1655, test_size=1649)
     if normalize:
-        x_train = x_train.astype('float32') / 255.
-        x_test = x_test.astype('float32') / 255.
-        x_train -= 0.5  # rescale to [-0.5 0.5]
-        x_test -= 0.5
+        x_train = (x_train.astype('float32') - 128) / 128.
+        x_train += np.random.uniform(0, 2/255, x_train.shape)
+        x_test = (x_test.astype('float32') - 128) / 128.
+        x_test += np.random.uniform(0, 2/255, x_test.shape)
     return x_train[:, :, :, ::-1], x_test[:, :, :, ::-1]  # convert BGR to RGB
 
 
