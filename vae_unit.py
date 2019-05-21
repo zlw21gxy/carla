@@ -50,17 +50,15 @@ def create_encoder(latent_dim):
 
     elif image_shape == (128, 128, 3):
         kwargs = dict(strides=(2, 2), activation="elu", padding="same")
-        kwargs2 = dict(strides=(1, 1), activation="elu", padding="same")
+        kwargs2 = dict(strides=(1, 1), activation="elu", padding="valid")
         kwargs3 = dict(strides=(1, 1), padding="same")
         x = layers.Conv2D(48, 3, **kwargs)(encoder_iput)
         x = layers.Conv2D(64, 3, **kwargs)(x)
-        x = layers.Conv2D(72, 3, **kwargs)(x)
+        x = layers.Conv2D(128, 3, **kwargs)(x)
         x = layers.Conv2D(256, 3, **kwargs)(x)
-        x = layers.Conv2D(600, 3, **kwargs)(x)
-        x = keras.layers.GlobalAveragePooling2D()(x)
-        # x = layers.Flatten()(x)
-        x = layers.Dense(512, activation="elu")(x)
-        # x = layers.Dense(256, activation='elu')(x)
+        x = layers.Conv2D(512, 3, **kwargs)(x)
+        x = layers.Conv2D(700, 4, **kwargs2)(x)
+        x = layers.Flatten()(x)
 
     t_mean = layers.Dense(latent_dim, name='t_mean')(x)
     t_log_var = layers.Dense(latent_dim, name='t_log_var')(x)
@@ -97,12 +95,12 @@ def create_decoder(latent_dim):
         kwargs4 = dict(strides=(2, 2), padding="same")
         x = layers.Dense(1024, activation='elu')(decoder_input)
         x = layers.Reshape((4, 4, 64))(x)
-        x = layers.Conv2DTranspose(48, 3, **kwargs)(x)
+        x = layers.Conv2DTranspose(64, 3, **kwargs)(x)
+        x = layers.Conv2DTranspose(64, 3, **kwargs)(x)
         x = layers.Conv2DTranspose(48, 3, **kwargs)(x)
         x = layers.Conv2DTranspose(32, 3, **kwargs)(x)
         x = layers.Conv2DTranspose(24, 3, **kwargs)(x)
-        x = layers.Conv2DTranspose(3, 3, **kwargs)(x)
-        # x = layers.Conv2D(3, 3, **kwargs3)(x)
+        x = layers.Conv2D(3, 3, **kwargs3)(x)
     return Model(decoder_input, x, name='decoder')
 
 
