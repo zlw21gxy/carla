@@ -4,7 +4,7 @@ __pycache__/
 *core
 # C extensions
 *.so
-
+*.png
 # Distribution / packaging
 bin/
 build/

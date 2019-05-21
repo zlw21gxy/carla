@@ -16,7 +16,7 @@ from keras.datasets import mnist
 import matplotlib.pyplot as plt
 
 # Shape of MNIST images
-from config import IMG_SIZE, mode
+from config import IMG_SIZE, mode, latent_dim
 
 image_shape = IMG_SIZE
 
@@ -213,7 +213,7 @@ def load_carla_data(normalize=False, num=None):
         if i > num:
             break
         i += 1
-    x_train, x_test = train_test_split(np.stack(images_train), test_size=1649)
+    x_train, x_test = train_test_split(np.stack(images_train), train_size=num-1655, test_size=1649)
     if normalize:
         x_train = x_train.astype('float32') / 255.
         x_test = x_test.astype('float32') / 255.
@@ -224,13 +224,16 @@ def load_carla_data(normalize=False, num=None):
 
 def plot_image_rows(images_list, title_list):
     rows = len(images_list)
-    cols = len(images_list[0])
+    cols = len(images_list[0])  # (10, 128, 128, 3)
+    plt.figure(figsize=(cols, 2))
 
-    def plot_image_row(images, title):
-        plt.figure(figsize=(cols, 1))
+    def plot_image_row(images, title, flag):
         plt.gcf().suptitle(title)
         for i, img in enumerate(images):
-            plt.subplot(rows, cols, i + 1)
+            if flag == "original":
+                plt.subplot(rows, cols, i + 1)
+            else:
+                plt.subplot(rows, cols, cols + i + 1)
             img += 0.5  # rescale to [0, 255]
             img = img * 255
             num_channel = img.shape[-1]
@@ -240,8 +243,8 @@ def plot_image_rows(images_list, title_list):
                 plt.imshow(np.clip(img.astype("int32"), 0, 255))
             plt.axis('off')
 
-    for images, title in zip(images_list, title_list):
-        plot_image_row(images, title)
+    for images, title, flag in zip(images_list, title_list, ["original", "vae"]):
+        plot_image_row(images, title, flag)
 
 
 def plot_laplacian_variances(lvs_1, lvs_2, lvs_3, title):
@@ -259,3 +262,33 @@ class SGDLearningRateTracker(keras.callbacks.Callback):
         # lr = K.eval(optimizer.lr * (1. / (1. + optimizer.decay * optimizer.iterations)))
         # print('\nLR: {:.6f}\n'.format(lr))
         print(K.eval(optimizer.iterations))
+
+
+def create_vae(latent_dim, return_kl_loss_op=False):
+    encoder = create_encoder(latent_dim)
+    decoder = create_decoder(latent_dim)
+    sampler = create_sampler()
+
+    x = layers.Input(shape=IMG_SIZE, name='image')
+    t_mean, t_log_var = encoder(x)
+    t = sampler([t_mean, t_log_var])
+    t_decoded = decoder(t)
+
+    model = Model(x, t_decoded, name='vae')
+
+    if return_kl_loss_op:
+        kl_loss = -0.5 * K.sum(1 + t_log_var - K.square(t_mean) - K.exp(t_log_var), axis=-1)
+        return model, kl_loss
+    else:
+        return model
+
+
+def encode(model, images):
+    return model.get_layer('encoder').predict(images)[0]   # return np
+
+def decode(model, codes):
+    return model.get_layer('decoder').predict(codes)
+
+
+def encode_decode(model, images):
+    return decode(model, encode(model, images))

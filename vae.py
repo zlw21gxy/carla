@@ -24,29 +24,6 @@ from keras import layers
 from keras.models import Model, Sequential
 # All images will be rescaled by 1./255
 
-train_dir = "/home/gu/project/ppo/carla/data/train"
-val_dir = "/home/gu/project/ppo/carla/data/val"
-train_datagen = ImageDataGenerator(rescale=1./255)
-test_datagen = ImageDataGenerator(rescale=1./255)
-
-train_generator = train_datagen.flow_from_directory(
-        # This is the target directory
-        train_dir,
-        # All images will be resized to 150x150
-        target_size=(28, 28),
-        batch_size=20,
-        # Since we use binary_crossentropy loss, we need binary labels
-        class_mode='binary')
-
-validation_generator = test_datagen.flow_from_directory(
-        val_dir,
-        target_size=(28, 28),
-        batch_size=20,
-        class_mode='binary')
-
-
-
-
 def sampling(args):
     """Reparameterization trick by sampling from an isotropic unit Gaussian.
     # Arguments
@@ -138,7 +115,7 @@ x_test = x_test.astype('float32') / 255
 input_shape = (original_dim, )
 intermediate_dim = 512
 batch_size = 128
-latent_dim = 2
+latent_dim = 5
 epochs = 50
 
 
@@ -189,13 +166,19 @@ if __name__ == '__main__':
     data = (x_test, y_test)
 
     # VAE loss = mse_loss or xent_loss + kl_loss
+    # inputs
+    # Out[5]: < tf.Tensor 'encoder_input:0' shape = (?, 784)dtype = float32 >
+    # outputs
+    # Out[6]: < tf.Tensor'decoder/dense_3/Sigmoid:0' shape = (?, 784) dtype = float32 >
+    # reconstruction_loss
+    # Out[7]: < tf.Tensor'mul:0'shape = (?,) dtype = float32 >
     if args.mse:
         reconstruction_loss = mse(inputs, outputs)
     else:
         reconstruction_loss = binary_crossentropy(inputs,
                                                   outputs)
 
-    reconstruction_loss *= original_dim
+    reconstruction_loss *= original_dim  # *784
     kl_loss = 1 + z_log_var - K.square(z_mean) - K.exp(z_log_var)
     kl_loss = K.sum(kl_loss, axis=-1)
     kl_loss *= -0.5
@@ -214,6 +197,7 @@ if __name__ == '__main__':
         vae.fit(x_train,
                 epochs=epochs,
                 batch_size=batch_size,
+                verbose=2,
                 validation_data=(x_test, None))
         vae.save_weights('vae_mlp_mnist')
 

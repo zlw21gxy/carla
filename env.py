@@ -15,7 +15,7 @@ import subprocess
 import sys
 import time
 import traceback
-
+from vae_unit import encode, create_vae, decode
 import numpy as np
 try:
     import scipy.misc
@@ -26,6 +26,13 @@ import gym
 from gym.spaces import Box, Discrete, Tuple
 
 from scenarios import DEFAULT_SCENARIO, LANE_KEEP, TOWN2_STRAIGHT, TOWN2_ONE_CURVE, TOWN2_CUSTOM
+
+import os
+
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+
+# The GPU id to use, usually either "0" or "1";
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 # Set this where you want to save image outputs (or empty string to disable)
 CARLA_OUT_PATH = os.environ.get("CARLA_OUT", os.path.expanduser("~/carla_out"))
@@ -88,15 +95,16 @@ ENV_CONFIG = {
     "reward_function": "custom",
     "render_x_res": 400,
     "render_y_res": 300,
-    "x_res": 96,  # cv2.resize()
-    "y_res": 96,  # cv2.resize()
+    "x_res": 128,  # cv2.resize()
+    "y_res": 128,  # cv2.resize()
     "server_map": "/Game/Maps/Town02",
     "scenarios": TOWN2_CUSTOM,  # [LANE_KEEP]
     "use_depth_camera": False,  # use depth instead of rgb.
     "discrete_actions": True,
     "squash_action_logits": False,
     "encode_measurement": True,  # encode measurement information into channel
-    "use_seg": False  # use segmentation camera
+    "use_seg": False,  # use segmentation camera
+    "VAE": True,
 }
 
 k = 0
@@ -162,6 +170,12 @@ class CarlaEnv(gym.Env):
                 shape=(config["y_res"], config["x_res"], 5),
                 dtype=np.float32)
         # The Observation Space
+        if config["VAE"]:
+            image_space = Box(
+                0,
+                255,
+                shape=(2, 256),
+                dtype=np.float32)
         self.observation_space = Tuple(
             [
                 image_space,
@@ -189,6 +203,11 @@ class CarlaEnv(gym.Env):
         self.start_coord = None
         self.end_coord = None
         self.last_obs = None
+        self.latent_dim = 256
+        self.vae = create_vae(self.latent_dim, return_kl_loss_op=False)
+        filepath = "/home/gu/project/ppo/ppo_carla/models/carla_model/high_ld_256_beta_1_r_1_lr_0.0001.hdf5"
+        self.vae.load_weights(filepath)
+        self.vae.trainable = False
 
     def init_server(self):
         print("Initializing new Carla server...")
@@ -361,17 +380,29 @@ class CarlaEnv(gym.Env):
         feature_map[3, 1] = (py_measurements["y"] - 50) / 150
         feature_map[3, 2] = (py_measurements["end_coord"][0] - 150) / 150
         feature_map[3, 3] = (py_measurements["end_coord"][1] - 150) / 150
-        feature_map = np.tile(feature_map, (24, 24))
-       #  print("checkkkkkk...sad", prev_image.shape, image.shape, feature_map.shape)
-        image = np.concatenate(
+        feature_map = np.tile(feature_map, (32, 32))
+        image_ = np.concatenate(
                [prev_image, image, feature_map[:, :, np.newaxis]], axis=2)
-        obs = (image, COMMAND_ORDINAL[py_measurements["next_command"]], [
-            py_measurements["forward_speed"],
-            py_measurements["distance_to_goal"]
-        ])
-        self.last_obs = obs
+        # obs = (image, COMMAND_ORDINAL[py_measurements["next_command"]], [
+        #     py_measurements["forward_speed"],
+        #     py_measurements["distance_to_goal"]
+        # ])
         # print('distance to goal', py_measurements["distance_to_goal"])
         # print("speed", py_measurements["forward_speed"])
+        if ENV_CONFIG["VAE"]:
+            image_in = np.stack([image, prev_image], axis=0)
+            latent_encode = encode(self.vae, image_in)
+            obs = (latent_encode, COMMAND_ORDINAL[py_measurements["next_command"]], [
+                py_measurements["forward_speed"],
+                py_measurements["distance_to_goal"]
+            ])
+        else:
+            obs = (image_, COMMAND_ORDINAL[py_measurements["next_command"]], [
+                py_measurements["forward_speed"],
+                py_measurements["distance_to_goal"]
+            ])
+        self.last_obs = obs
+
         return obs
     # TODO:example of py_measurement
     # {'episode_id': '2019-02-22_11-26-36_990083',
@@ -558,7 +589,8 @@ class CarlaEnv(gym.Env):
             # print(sensor_data["CameraRGB"].data.shape, sensor_data["CameraDepth"].data.shape)
             #observation = np.concatenate(((sensor_data["CameraRGB"].data.astype(np.float32)-128)/128,
             #                            (sensor_data["CameraDepth"].data[:, :, np.newaxis] - 0.5)*0.5), axis=2)
-            observation = (sensor_data["CameraRGB"].data.astype(np.float32) - 128)/128
+            # observation = (sensor_data["CameraRGB"].data.astype(np.float32) - 128)/128
+            observation = (sensor_data["CameraRGB"].data.astype(np.float32)/255) - 0.5
             # print("observation_shape", observation.shape)
 
         else:
@@ -844,12 +876,13 @@ if __name__ == "__main__":
         while 1:
             # print(i)
             i += 1
-            if i > 900:
+            if i > 1000:
                 i = 0
                 env.reset()
             if ENV_CONFIG["discrete_actions"]:
                 obs, reward, done, info = env.step(1)
+                # print(obs[0].shape)
             else:
                 obs, reward, done, info = env.step([1, 0])
             total_reward += reward
-        print("{:.2f} fps".format(float(i / (time.time() - start))))
+        # print("{:.2f} fps".format(float(i / (time.time() - start))))

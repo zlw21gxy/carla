@@ -53,11 +53,16 @@ def create_vae(latent_dim, return_kl_loss_op=False):
 def vae_loss(x, t_decoded):
     '''Total loss for the plain VAE'''
     return scale * K.mean(scale_r * reconstruction_loss(x, t_decoded) + beta * vae_kl_loss)  # adjust losss scale
-
+# x Out[2]: <tf.Tensor 'decoder_target:0' shape=(?, ?, ?, ?) dtype=float32>
+# t_decoded Out[3]: <tf.Tensor 'decoder/image/BiasAdd:0' shape=(?, ?, ?, 1) dtype=float32>
 
 def reconstruction_loss(x, t_decoded):
     '''Reconstruction loss for the plain VAE'''
-    return K.mean(K.square(x - t_decoded), axis=(1, 2, 3))  # average over images
+    # return K.mean(K.square(x - t_decoded), axis=(1, 2, 3))  # average over images
+    return K.sum(K.square(x - t_decoded), axis=(1, 2, 3))  # average over images
+
+def mean_squared_error(y_true, y_pred):
+    return K.mean(K.square(y_pred - y_true), axis=-1)
 
 
 # def reconstruction_loss(x, t_decoded):
