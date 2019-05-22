@@ -28,9 +28,9 @@ from gym.spaces import Box, Discrete, Tuple
 from scenarios import DEFAULT_SCENARIO, LANE_KEEP, TOWN2_STRAIGHT, TOWN2_ONE_CURVE, TOWN2_CUSTOM
 
 import os
-
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+#
+# os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 
 # Set this where you want to save image outputs (or empty string to disable)
 CARLA_OUT_PATH = os.environ.get("CARLA_OUT", os.path.expanduser("~/carla_out"))
@@ -91,7 +91,7 @@ ENV_CONFIG = {
     "framestack": 1,  # note: only [1, 2] currently supported
     "early_terminate_on_collision": True,
     "reward_function": "custom2",
-    "render_x_res": 400,
+    "render_x_res": 300,
     "render_y_res": 300,
     "x_res": 128,  # cv2.resize()
     "y_res": 128,  # cv2.resize()
@@ -103,6 +103,7 @@ ENV_CONFIG = {
     "encode_measurement": True,  # encode measurement information into channel
     "use_seg": False,  # use segmentation camera
     "VAE": True,
+    "SAC": True,
 }
 
 k = 0
@@ -172,7 +173,7 @@ class CarlaEnv(gym.Env):
             image_space = Box(
                 0,
                 255,
-                shape=(512,),
+                shape=(515,),
                 dtype=np.float32)
         self.observation_space = Tuple(
             [
@@ -389,8 +390,13 @@ class CarlaEnv(gym.Env):
         # print("speed", py_measurements["forward_speed"])
         if ENV_CONFIG["VAE"]:
             image_in = np.stack([image, prev_image], axis=0)
-            latent_encode = encode(self.vae, image_in)
-            obs = (latent_encode.flatten(), COMMAND_ORDINAL[py_measurements["next_command"]], [
+            latent_encode = encode(self.vae, image_in).flatten()
+            if ENV_CONFIG["SAC"]:
+                metric = np.array([COMMAND_ORDINAL[py_measurements["next_command"]]/4,
+                                           py_measurements["forward_speed"]/30,
+                                           py_measurements["distance_to_goal"]/100])
+                latent_encode = np.append(latent_encode, metric)
+            obs = (latent_encode, COMMAND_ORDINAL[py_measurements["next_command"]], [
                 py_measurements["forward_speed"],
                 py_measurements["distance_to_goal"]
             ])
@@ -767,7 +773,7 @@ def compute_reward_custom_2(env, prev, current):
         print("Cur dist {}, prev dist {}".format(cur_dist, prev_dist))
 
     # Distance travelled toward the goal in m
-    reward += 0.5 * np.clip(prev_dist - cur_dist, -12.0, 12.0)
+    reward += 0.3 * np.clip(prev_dist - cur_dist, -12.0, 12.0)
 
     # Speed reward, up 30.0 (km/h)
     reward += np.clip(current["forward_speed"], 0.0, 30.0) / 10
@@ -779,7 +785,7 @@ def compute_reward_custom_2(env, prev, current):
         current["collision_other"] - prev["collision_vehicles"] -
         prev["collision_pedestrians"] - prev["collision_other"])
     if new_damage:
-        reward -= 10 + 3*current["forward_speed"]
+        reward -= 15 + (current["forward_speed"]/3)**2
 
     reward -= np.clip(10 * current["forward_speed"] * int(current["intersection_offroad"] > 0.001), 0, 50)   # [0, 1]
     reward -= 4 * current["intersection_otherlane"]  # [0, 1]
@@ -817,7 +823,7 @@ def compute_reward_lane_keep(env, prev, current):
 REWARD_FUNCTIONS = {
     "corl2017": compute_reward_corl2017,
     "custom": compute_reward_custom,
-    "custom2": compute_reward_custom,
+    "custom2": compute_reward_custom_2,
     "lane_keep": compute_reward_lane_keep,
 }
 def compute_reward(env, prev, current):

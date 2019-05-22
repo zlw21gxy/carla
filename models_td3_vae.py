@@ -88,30 +88,30 @@ class CarlaModel(Model):
         # Setup metrics layer
 
         with tf.name_scope("carla_vae"):
-            vision_in = tf.reshape(vision_in, [-1, 512])
+            vision_in = tf.reshape(vision_in[..., :512], [-1, 512])
             vision_out = slim.fully_connected(
                 vision_in,
                 600,
                 weights_initializer=xavier_initializer(),
                 activation_fn=activation,
                 scope="vision_out_1")
-            vision_out = slim.fully_connected(
-                vision_out,
-                512,
-                weights_initializer=xavier_initializer(),
-                activation_fn=activation,
-                scope="vision_out_2")
+            # vision_out = slim.fully_connected(
+            #     vision_out,
+            #     512,
+            #     weights_initializer=xavier_initializer(),
+            #     activation_fn=activation,
+            #     scope="vision_out_2")
         with tf.name_scope("carla_metrics"):
             metrics_in = slim.fully_connected(
                 metrics_in,
-                90,
+                64,
                 weights_initializer=xavier_initializer(),
                 activation_fn=activation,
                 scope="metrics_out")
 
         with tf.name_scope("carla_out"):
             i = 1
-            last_layer = tf.concat([vision_in, metrics_in], axis=1)
+            last_layer = tf.concat([vision_out, metrics_in], axis=1)
             print("Shape of concatenated out is", last_layer.shape)
             for size in hiddens:
                 last_layer = slim.fully_connected(
@@ -130,18 +130,18 @@ class CarlaModel(Model):
 
         return output, last_layer
 
-    # def value_function(self):
-    #     hiddens = [400, 300]
-    #     last_layer = self.last_layer
-    #     with tf.name_scope("value_function"):
-    #         i = 0
-    #         for size in hiddens:
-    #             last_layer = slim.fully_connected(last_layer, size, weights_initializer=xavier_initializer(),
-    #                                              activation_fn=tf.nn.elu,scope="value_function{}".format(i))
-    #             i += 1
-    #         output = slim.fully_connected(last_layer, 1, weights_initializer=normc_initializer(0.01),
-    #                                              activation_fn=None,scope="value_out")
-    #     return tf.reshape(output, [-1])
+    def value_function(self):
+        hiddens = [400, 300]
+        last_layer = self.last_layer
+        with tf.name_scope("value_function"):
+            i = 0
+            for size in hiddens:
+                last_layer = slim.fully_connected(last_layer, size, weights_initializer=xavier_initializer(),
+                                                 activation_fn=tf.nn.elu,scope="value_function{}".format(i))
+                i += 1
+            output = slim.fully_connected(last_layer, 1, weights_initializer=normc_initializer(0.01),
+                                                 activation_fn=None,scope="value_out")
+        return tf.reshape(output, [-1])
 
 
 def register_carla_model():
