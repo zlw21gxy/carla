@@ -90,7 +90,7 @@ ENV_CONFIG = {
     "enable_planner": True,
     "framestack": 1,  # note: only [1, 2] currently supported
     "early_terminate_on_collision": True,
-    "reward_function": "custom",
+    "reward_function": "custom2",
     "render_x_res": 400,
     "render_y_res": 300,
     "x_res": 128,  # cv2.resize()
@@ -98,7 +98,7 @@ ENV_CONFIG = {
     "server_map": "/Game/Maps/Town02",
     "scenarios": TOWN2_CUSTOM,  # [LANE_KEEP]
     "use_depth_camera": False,  # use depth instead of rgb.
-    "discrete_actions": False,
+    "discrete_actions": True,
     "squash_action_logits": False,
     "encode_measurement": True,  # encode measurement information into channel
     "use_seg": False,  # use segmentation camera
@@ -172,7 +172,7 @@ class CarlaEnv(gym.Env):
             image_space = Box(
                 0,
                 255,
-                shape=(2, 256),
+                shape=(512,),
                 dtype=np.float32)
         self.observation_space = Tuple(
             [
@@ -390,7 +390,7 @@ class CarlaEnv(gym.Env):
         if ENV_CONFIG["VAE"]:
             image_in = np.stack([image, prev_image], axis=0)
             latent_encode = encode(self.vae, image_in)
-            obs = (latent_encode, COMMAND_ORDINAL[py_measurements["next_command"]], [
+            obs = (latent_encode.flatten(), COMMAND_ORDINAL[py_measurements["next_command"]], [
                 py_measurements["forward_speed"],
                 py_measurements["distance_to_goal"]
             ])

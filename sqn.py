@@ -139,8 +139,8 @@ def sqn(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
 
 
     env, test_env = env_fn(), env_fn()
-    obs_dim = env.observation_space.shape[0]
-    obs_space = env.observation_space
+    obs_space = env.observation_space[0]
+    obs_dim = obs_space.shape[0]
     act_dim = env.action_space.n
     act_space = env.action_space
 
@@ -265,7 +265,7 @@ def sqn(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     # o = env.reset()                                                     #####################
     # o, r, d, ep_ret, ep_len = env.step(1)[0], 0, False, 0, 0            #####################
     o, r, d, ep_ret, ep_len = env.reset(), 0, False, 0, 0
-
+    o = o[0]
 
 
     total_steps = steps_per_epoch * epochs
@@ -282,18 +282,19 @@ def sqn(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         if t > start_steps:
             a = get_action(o)
         else:
-            a = env.action_space.sample()
-
-        np.random.random()
+            # a = env.action_space.sample()
+            a = 17
 
 
         # Step the env
         o2, r, d, _ = env.step(a)
+        o2 = o2[0]
         #print(a,o2)
         # o2, r, _, d = env.step(a)                     #####################
         # d = d['ale.lives'] < 5                        #####################
 
         ep_ret += r
+
         ep_len += 1
 
         # Ignore the "done" signal if it comes from hitting the time
@@ -335,7 +336,7 @@ def sqn(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             # o = env.reset()                                              #####################
             # o, r, d, ep_ret, ep_len = env.step(1)[0], 0, False, 0, 0     #####################
             o, r, d, ep_ret, ep_len = env.reset(), 0, False, 0, 0
-
+            o = o[0]
 
         # End of epoch wrap-up
         if t > 0 and t % steps_per_epoch == 0:
@@ -376,6 +377,7 @@ if __name__ == '__main__':
     parser.add_argument('--l', type=int, default=1)
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--seed', '-s', type=int, default=0)
+    parser.add_argument('--steps_per_epoch', type=int, default=5000)
     parser.add_argument('--epochs', type=int, default=5000)
     parser.add_argument('--max_ep_len', type=int, default=1000)    # make sure: max_ep_len < steps_per_epoch
     parser.add_argument('--alpha', default=2.0, help="alpha can be either 'auto' or float(e.g:0.2).")
@@ -391,6 +393,6 @@ if __name__ == '__main__':
     env_fn = make_carla if args.env=='Carla-v0' else lambda : gym.make(args.env)
 
     sqn(env_fn, actor_critic=core.mlp_actor_critic,
-        ac_kwargs=dict(hidden_sizes=[200,100]),
+        ac_kwargs=dict(hidden_sizes=[400, 300, 200]),
         gamma=args.gamma, seed=args.seed, epochs=args.epochs, steps_per_epoch=args.steps_per_epoch, alpha=args.alpha,
         logger_kwargs=logger_kwargs)
