@@ -98,7 +98,7 @@ ENV_CONFIG = {
     "server_map": "/Game/Maps/Town02",
     "scenarios": TOWN2_CUSTOM,  # [LANE_KEEP]
     "use_depth_camera": False,  # use depth instead of rgb.
-    "discrete_actions": True,
+    "discrete_actions": False,
     "squash_action_logits": False,
     "encode_measurement": True,  # encode measurement information into channel
     "use_seg": False,  # use segmentation camera
