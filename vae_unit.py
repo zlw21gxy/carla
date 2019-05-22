@@ -21,7 +21,7 @@ from config import IMG_SIZE, mode, latent_dim
 image_shape = IMG_SIZE
 
 
-def create_encoder(latent_dim):
+def create_encoder(latent_dim, flag="train"):
     '''
     Creates a convolutional encoder model for MNIST images.
 
@@ -31,8 +31,16 @@ def create_encoder(latent_dim):
       variance.
     '''
     encoder_iput = layers.Input(shape=image_shape, name='image')
-
-    if image_shape == (28, 28, 3):
+    if flag == "env":
+        kwargs = dict(strides=(2, 2), activation="elu", padding="same")
+        x = layers.Conv2D(48, 3, **kwargs)(encoder_iput)
+        x = layers.Conv2D(64, 3, **kwargs)(x)
+        x = layers.Conv2D(72, 3, **kwargs)(x)
+        x = layers.Conv2D(256, 3, **kwargs)(x)
+        x = layers.Conv2D(600, 3, **kwargs)(x)
+        x = keras.layers.GlobalAveragePooling2D()(x)
+        x = layers.Dense(512, activation="elu")(x)
+    elif image_shape == (28, 28, 3):
         x = layers.Conv2D(32, 3, padding='same', activation='relu')(encoder_iput)
         x = layers.Conv2D(64, 3, padding='same', activation='relu', strides=(2, 2))(x)
         x = layers.Conv2D(64, 3, padding='same', activation='relu')(x)
@@ -66,7 +74,7 @@ def create_encoder(latent_dim):
     return Model(encoder_iput, [t_mean, t_log_var], name='encoder')
 
 
-def create_decoder(latent_dim):
+def create_decoder(latent_dim, flag="train"):
     '''
     Creates a (de-)convolutional decoder model for MNIST images.
 
@@ -75,13 +83,23 @@ def create_decoder(latent_dim):
       the value of each pixel is the probability of being white.
     '''
     decoder_input = layers.Input(shape=(latent_dim,), name='t')
-    if image_shape == (28, 28, 3):
+    if flag == "env":
+        kwargs = dict(strides=(2, 2), activation="elu", padding="same")
+        x = layers.Dense(1024, activation='elu')(decoder_input)
+        x = layers.Reshape((4, 4, 64))(x)
+        x = layers.Conv2DTranspose(48, 3, **kwargs)(x)
+        x = layers.Conv2DTranspose(48, 3, **kwargs)(x)
+        x = layers.Conv2DTranspose(32, 3, **kwargs)(x)
+        x = layers.Conv2DTranspose(24, 3, **kwargs)(x)
+        x = layers.Conv2DTranspose(3, 3, **kwargs)(x)
+
+    elif image_shape == (28, 28, 3):
         x = layers.Dense(12544, activation='relu')(decoder_input)
         x = layers.Reshape((14, 14, 64))(x)
         x = layers.Conv2DTranspose(32, 3, padding='same', activation='relu', strides=(2, 2))(x)
         x = layers.Conv2D(3, 3, padding='same', name='image')(x)
 
-    if image_shape == (28, 28, 1):
+    elif image_shape == (28, 28, 1):
         x = layers.Dense(12544, activation='relu')(decoder_input)
         x = layers.Reshape((14, 14, 64))(x)
         x = layers.Conv2DTranspose(32, 3, padding='same', activation='relu', strides=(2, 2))(x)
@@ -197,7 +215,7 @@ def load_carla_data(normalize=False, num=None):
     if mode == "carla":
         train_dir = "/home/gu/carla_out/train/*.jpg"
     elif mode == "carla_high":
-        train_dir = "/home/gu/carla_out/CameraRGB/*.jpg"
+        train_dir = "/home/gu/carla_out/train_high/*.jpg"
     else:
         print("wrong mode")
     file_dir = glob.glob(train_dir)
@@ -263,8 +281,8 @@ class SGDLearningRateTracker(keras.callbacks.Callback):
 
 
 def create_vae(latent_dim, return_kl_loss_op=False):
-    encoder = create_encoder(latent_dim)
-    decoder = create_decoder(latent_dim)
+    encoder = create_encoder(latent_dim, flag="env")
+    decoder = create_decoder(latent_dim, flag="env")
     sampler = create_sampler()
 
     x = layers.Input(shape=IMG_SIZE, name='image')

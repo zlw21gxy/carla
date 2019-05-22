@@ -30,9 +30,7 @@ from scenarios import DEFAULT_SCENARIO, LANE_KEEP, TOWN2_STRAIGHT, TOWN2_ONE_CUR
 import os
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-
-# The GPU id to use, usually either "0" or "1";
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 
 # Set this where you want to save image outputs (or empty string to disable)
 CARLA_OUT_PATH = os.environ.get("CARLA_OUT", os.path.expanduser("~/carla_out"))
@@ -100,7 +98,7 @@ ENV_CONFIG = {
     "server_map": "/Game/Maps/Town02",
     "scenarios": TOWN2_CUSTOM,  # [LANE_KEEP]
     "use_depth_camera": False,  # use depth instead of rgb.
-    "discrete_actions": True,
+    "discrete_actions": False,
     "squash_action_logits": False,
     "encode_measurement": True,  # encode measurement information into channel
     "use_seg": False,  # use segmentation camera
@@ -862,14 +860,13 @@ def collided_done(py_measurements):
 
 if __name__ == "__main__":
     for _ in range(2):
-        env = CarlaEnv(enable_autopilot=True)
+        env = CarlaEnv(enable_autopilot=False)
         obs = env.reset()      
         print(obs[0].shape) 
         start = time.time
         # import matplotlib.pyplot as plt
-        # plt.imshow(obs[0])
         # plt.show()
-        start = time.time()
+        # plt.imshow(obs[0])
         done = False
         i = 0
         total_reward = 0.0
@@ -883,6 +880,6 @@ if __name__ == "__main__":
                 obs, reward, done, info = env.step(1)
                 # print(obs[0].shape)
             else:
-                obs, reward, done, info = env.step([1, 0])
+                obs, reward, done, info = env.step([1, 0.5])
             total_reward += reward
         # print("{:.2f} fps".format(float(i / (time.time() - start))))

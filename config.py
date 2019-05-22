@@ -34,9 +34,9 @@ elif mode == "carla_high":
     scale_r = 1
     lr = 1e-4
     batch_size = 100
-    use_pretrained = False
+    use_pretrained = True
     # filepath = "/home/gu/project/ppo/ppo_carla/models/carla/high_ld_{}_beta_{}_r_{}_lr_{}_bc_{}.hdf5".format(latent_dim, beta,
-    filepath = "/home/gu/project/ppo/ppo_carla/models/carla/high_ld_512_beta_1_r_1_lr_0.0001.hdf5"
+    filepath = "/home/gu/large_high_ld_512_beta_1_r_1_lr_0.0001.hdf5"
 
 elif mode == "check":
     IMG_SIZE = (128, 128, 3)

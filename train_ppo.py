@@ -8,8 +8,6 @@ from ray.tune import run_experiments
 from env import CarlaEnv, ENV_CONFIG
 from models import register_carla_model
 
-
-
 from scenarios import TOWN2_STRAIGHT, TOWN2_ONE_CURVE, TOWN2_NAVIGATION 
 
 
