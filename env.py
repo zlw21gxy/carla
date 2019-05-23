@@ -886,6 +886,7 @@ if __name__ == "__main__":
                 obs, reward, done, info = env.step(1)
                 # print(obs[0].shape)
             else:
-                obs, reward, done, info = env.step([1, 0.5])
+                obs, reward, done, info = env.step([0, 0])
+                print(reward)
             total_reward += reward
         # print("{:.2f} fps".format(float(i / (time.time() - start))))
