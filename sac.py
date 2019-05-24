@@ -334,7 +334,7 @@ if __name__ == '__main__':
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--seed', '-s', type=int, default=0)
     parser.add_argument('--epochs', type=int, default=1000)
-    parser.add_argument('--exp_name', type=str, default='sac_carla')
+    parser.add_argument('--exp_name', type=str, default='sac_carla_large')
     args = parser.parse_args()
 
     from spinup.utils.run_utils import setup_logger_kwargs

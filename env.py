@@ -102,9 +102,10 @@ ENV_CONFIG = {
     "squash_action_logits": False,
     "encode_measurement": True,  # encode measurement information into channel
     "use_seg": False,  # use segmentation camera
-    "VAE": False,
+    "VAE": True,
     "SAC": True,
     "out_vae": False,
+    "action_repeat": 2,
 }
 
 k = 0
@@ -205,7 +206,8 @@ class CarlaEnv(gym.Env):
         self.last_obs = None
         self.latent_dim = 256
         self.vae = create_vae(self.latent_dim, return_kl_loss_op=False)
-        filepath = "/home/gu/project/ppo/ppo_carla/models/carla_model/high_ld_256_beta_1_r_1_lr_0.0001.hdf5"
+        # filepath = "/home/gu/project/ppo/ppo_carla/models/carla_model/high_ld_256_beta_1_r_1_lr_0.0001.hdf5"
+        filepath = "/home/gu/project/ppo/ppo_carla/models/carla_model/large_high_ld_256_beta_1.2_r_1_lr_0.0001_bc_128.hdf5"
         self.vae.load_weights(filepath)
         self.vae.trainable = False
 
@@ -463,7 +465,8 @@ class CarlaEnv(gym.Env):
 
     def step(self, action):
         try:
-            obs = self._step(action)
+            for _ in range(ENV_CONFIG["action_repeat"]):
+                obs = self._step(action)
             return obs
         except Exception:
             print("Error during step, terminating episode early",
@@ -587,8 +590,8 @@ class CarlaEnv(gym.Env):
             "-start_number 0 -i "
             "{img}_%04d.jpg -vcodec libx264 {vid}.mp4 && rm -f {img}_*.jpg "
         ).format(
-            x_res=self.config["render_x_res"],
-            y_res=self.config["render_y_res"],
+            x_res=self.config["x_res"],
+            y_res=self.config["y_res"],
             vid=os.path.join(videos_dir, self.episode_id),
             # img=os.path.join(CARLA_OUT_PATH, "CameraRGB", self.episode_id))
             img=os.path.join(CARLA_OUT_PATH, "vae", self.episode_id))
@@ -623,8 +626,8 @@ class CarlaEnv(gym.Env):
             # print(sensor_data["CameraRGB"].data.shape, sensor_data["CameraDepth"].data.shape)
             #observation = np.concatenate(((sensor_data["CameraRGB"].data.astype(np.float32)-128)/128,
             #                            (sensor_data["CameraDepth"].data[:, :, np.newaxis] - 0.5)*0.5), axis=2)
-            # observation = (sensor_data["CameraRGB"].data.astype(np.float32) - 128)/128
-            observation = (sensor_data["CameraRGB"].data.astype(np.float32)/255) - 0.5
+            observation = (sensor_data["CameraRGB"].data.astype(np.float32) - 128)/128
+            # observation = (sensor_data["CameraRGB"].data.astype(np.float32)/255) - 0.5
             # print("observation_shape", observation.shape)
 
         else:
@@ -817,7 +820,7 @@ def compute_reward_custom_2(env, prev, current):
     if new_damage:
         reward -= 15 + (current["forward_speed"]/3)**2
         print("<<<<<<<<<<<<<<<<<<damage>>>>>>>>>>>>>>>>>>>")
-    reward -= 0.03 * (current["steer"]**2)
+    reward -= 0.03 * (current["control"]["steer"]**2)
     reward -= np.clip(10 * current["forward_speed"] * int(current["intersection_offroad"] > 0.001), 0, 20)   # [0, 1]
     reward -= 4 * current["intersection_otherlane"]  # [0, 1]
     reward -= 0.03 if current["forward_speed"] < 1 else 0
@@ -909,15 +912,16 @@ if __name__ == "__main__":
         while 1:
             # print(i)
             i += 1
-            if i > 500:
+            if i > 1000:
                 i = 0
-                # env.images_to_video()
+                env.images_to_video()
                 env.reset()
             if ENV_CONFIG["discrete_actions"]:
                 obs, reward, done, info = env.step(1)
                 # print(obs[0].shape)
             else:
                 obs, reward, done, info = env.step([0, 0])
-                print(reward)
+                print(obs[0].shape)
+                # print(reward)
             total_reward += reward
         # print("{:.2f} fps".format(float(i / (time.time() - start))))

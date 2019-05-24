@@ -285,8 +285,8 @@ class SGDLearningRateTracker(keras.callbacks.Callback):
 
 
 def create_vae(latent_dim, return_kl_loss_op=False):
-    encoder = create_encoder(latent_dim, flag="env")
-    decoder = create_decoder(latent_dim, flag="env")
+    encoder = create_encoder(latent_dim, flag="train")
+    decoder = create_decoder(latent_dim, flag="train")
     sampler = create_sampler()
 
     x = layers.Input(shape=IMG_SIZE, name='image')

@@ -21,7 +21,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from mpl_toolkits.mplot3d import Axes3D
 
-latent_dim = 256
+latent_dim = 128
 def create_vae(latent_dim, return_kl_loss_op=False):
     encoder = vae_util.create_encoder(latent_dim)
     decoder = vae_util.create_decoder(latent_dim)
@@ -62,7 +62,7 @@ else:
 
 vae, vae_kl_loss = create_vae(latent_dim, return_kl_loss_op=True)
 # filepath = "/home/gu/project/ppo/ppo_carla/models/carla_model/high_ld_256_beta_1_r_1_lr_0.0001.hdf5"
-filepath = "/home/gu/project/ppo/ppo_carla/models/carla_model/large_high_ld_256_beta_1.2_r_1_lr_0.0001_bc_128.hdf5"
+filepath = "/home/gu/project/ppo/ppo_carla/models/carla_model/large_high_ld_128_beta_1_r_1_lr_0.0001_bc_128.hdf5"
 print(filepath)
 vae.load_weights(filepath)
 
