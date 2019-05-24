@@ -21,10 +21,13 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from mpl_toolkits.mplot3d import Axes3D
 
-latent_dim = 128
+latent_dim = 256
 def create_vae(latent_dim, return_kl_loss_op=False):
     encoder = vae_util.create_encoder(latent_dim)
     decoder = vae_util.create_decoder(latent_dim)
+    # encoder = vae_util.create_encoder(latent_dim, flag="env")
+    # decoder = vae_util.create_decoder(latent_dim, flag="env")
+
     sampler = vae_util.create_sampler()
 
     x = layers.Input(shape=IMG_SIZE, name='image')
@@ -50,13 +53,16 @@ def reconstruction_loss(x, t_decoded):
 
 
 if mode[:5] == "carla":
-    x_train, x_test = load_carla_data(num=2000, normalize=True)
+    x_train, x_test = load_carla_data(num=800, normalize=True, flag="test", test_size=700)  # flag test for looading unseen data
+    # x_train, x_test = load_carla_data(num=800, normalize=False, flag="train", test_size=700)
+    # x_train = (x_train/255) - 0.5
+    # x_test = (x_test/255) - 0.5
 else:
     (x_train, _), (x_test, _) = load_mnist_data(normalize=True)
 
 vae, vae_kl_loss = create_vae(latent_dim, return_kl_loss_op=True)
-# filepath = "/home/gu/project/ppo/ppo_carla/models/carla/high_ld_512_beta_1_r_1_lr_0.0001.hdf5"
-filepath = "/home/gu/project/ppo/ppo_carla/models/carla_model/large_high_ld_128_beta_2_r_1_lr_0.0001_bc_128.hdf5"
+# filepath = "/home/gu/project/ppo/ppo_carla/models/carla_model/high_ld_256_beta_1_r_1_lr_0.0001.hdf5"
+filepath = "/home/gu/project/ppo/ppo_carla/models/carla_model/large_high_ld_256_beta_1.2_r_1_lr_0.0001_bc_128.hdf5"
 print(filepath)
 vae.load_weights(filepath)
 
@@ -74,6 +80,7 @@ def encode_decode(model, images):
 
 
 selected_idx = np.random.choice(range(x_test.shape[0]), 10, replace=False)
+# selected_idx = [507, 463, 400, 642,  82,  16, 132, 242, 318, 606]
 selected = x_test[selected_idx]
 selected_dec_vae = encode_decode(vae, selected)
 plot_image_rows([selected, selected_dec_vae],
@@ -82,8 +89,9 @@ plot_image_rows([selected, selected_dec_vae],
 plt.show()
 
 
-selected_idx = np.random.choice(range(x_test.shape[0]), 1000, replace=False)
-selected = x_test[selected_idx]
+# selected_idx = np.random.choice(range(x_test.shape[0]), 700, replace=False)
+# selected = x_test[selected_idx]
+selected = x_test
 latent_space = encode(vae, selected)
 
 

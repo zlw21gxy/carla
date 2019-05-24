@@ -211,13 +211,14 @@ def load_mnist_data(normalize=False):
     return (x_train, y_train), (x_test, y_test)
 
 
-def load_carla_data(normalize=False, num=None):
-    if mode == "carla":
-        train_dir = "/home/gu/carla_out/train/*.jpg"
-    elif mode == "carla_high":
-        train_dir = "/home/gu/carla_out/train_high/*.jpg"
-    else:
-        print("wrong mode")
+def load_carla_data(normalize=False, num=None, flag="train", test_size=1649):
+    if flag == "train":
+        if mode == "carla":
+            train_dir = "/home/gu/carla_out/train/*.jpg"
+        elif mode == "carla_high":
+            train_dir = "/home/gu/carla_out/train_high/*.jpg"
+    elif flag == "test":
+        train_dir = "/home/gu/carla_out/CameraRGB/*.jpg"
     file_dir = glob.glob(train_dir)
     if not num:
         num = len(file_dir)
@@ -229,12 +230,12 @@ def load_carla_data(normalize=False, num=None):
         if i > num:
             break
         i += 1
-    x_train, x_test = train_test_split(np.stack(images_train), train_size=num-1655, test_size=1649)
+    x_train, x_test = train_test_split(np.stack(images_train), train_size=num-test_size-3, test_size=test_size)
     if normalize:
         x_train = (x_train.astype('float32') - 128) / 128.
-        x_train += np.random.uniform(0, 2/255, x_train.shape)
+        x_train += np.random.uniform(0, 1/255, x_train.shape)
         x_test = (x_test.astype('float32') - 128) / 128.
-        x_test += np.random.uniform(0, 2/255, x_test.shape)
+        x_test += np.random.uniform(0, 1/255, x_test.shape)
     return x_train[:, :, :, ::-1], x_test[:, :, :, ::-1]  # convert BGR to RGB
 
 
@@ -250,8 +251,11 @@ def plot_image_rows(images_list, title_list):
                 plt.subplot(rows, cols, i + 1)
             else:
                 plt.subplot(rows, cols, cols + i + 1)
-            img += 0.5  # rescale to [0, 255]
-            img = img * 255
+            # img += 0.5  # rescale to [0, 255]
+            # img = img * 255
+
+            img = img * 128
+            img += 128  # rescale to [0, 255]
             num_channel = img.shape[-1]
             if num_channel == 1:
                 plt.imshow(np.clip(img[:, :, 0].astype("int32"), 0, 255))
