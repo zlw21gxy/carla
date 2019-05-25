@@ -893,7 +893,7 @@ def sigmoid(x):
 def collided_done(py_measurements):
     m = py_measurements
     collided = (m["collision_vehicles"] > 0 or m["collision_pedestrians"] > 0
-                or m["collision_other"] > 0 or m["intersection_offroad"] > 0.00001)
+                or m["collision_other"] > 0 or m["intersection_offroad"] > 0.05)
     return bool(collided or m["total_reward"] < -80)
 
 
