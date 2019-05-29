@@ -84,7 +84,7 @@ GROUND_Z = 0.22
 
 # Default environment configuration
 ENV_CONFIG = {
-    "log_images": True,  # log images in _read_observation().
+    "log_images": False,  # log images in _read_observation().
     "convert_images_to_video": False,  # convert log_images to videos. when "verbose" is True.
     "verbose": False,    # print measurement information; write out measurement json file
     "enable_planner": True,
@@ -207,7 +207,7 @@ class CarlaEnv(gym.Env):
         self.latent_dim = 256
         self.vae = create_vae(self.latent_dim, return_kl_loss_op=False)
         # filepath = "/home/gu/project/ppo/ppo_carla/models/carla_model/high_ld_256_beta_1_r_1_lr_0.0001.hdf5"
-        filepath = "/home/gu/project/ppo/ppo_carla/models/carla_model/large_high_ld_256_beta_1.2_r_1_lr_0.0001_bc_128.hdf5"
+        filepath = "/home/gu/project/ppo/ppo_carla/models/carla_model/large_high_ld_256_beta_1.2_r_1_lr_5e-05_bc_128.hdf5"
         self.vae.load_weights(filepath)
         self.vae.trainable = False
 

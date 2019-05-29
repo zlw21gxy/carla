@@ -1,9 +1,9 @@
-mode = "mnist"
+# mode = "mnist"
 # mode = "carla"
 # mode = "check"
-# mode = "carla_high"
+mode = "carla_high"
 if mode == "mnist":
-    IMG_SIZE = (28, 28, 1)
+    IMG_SIZE = (28, 28, 3)
     epochs = 15
     latent_dim = 5
     beta = 1
@@ -15,6 +15,7 @@ if mode == "mnist":
     filepath = "/home/gu/project/ppo/ppo_carla/models/mnist/ld_{}_beta_{}_r_{}.hdf5".format(latent_dim, beta, scale_r)
 elif mode == "carla":
     IMG_SIZE = (128, 128, 3)
+    epochs = 300
     epochs = 300
     latent_dim = 1024
     beta = 1
@@ -30,13 +31,17 @@ elif mode == "carla_high":
     epochs = 1000
     latent_dim = 128
     beta = 1.2
-    scale = (1 + beta)/ beta
+    scale = (1 + beta) / beta
     scale_r = 1
     lr = 1e-4
     batch_size = 100
-    use_pretrained = True
-    # filepath = "/home/gu/project/ppo/ppo_carla/models/carla/high_ld_{}_beta_{}_r_{}_lr_{}_bc_{}.hdf5".format(latent_dim, beta,
-    filepath = "/home/gu/large_high_ld_512_beta_1_r_1_lr_0.0001.hdf5"
+    use_pretrained = False
+    filepath = "/home/gu/project/ppo/ppo_carla/models/carla/dfc_ld_{}_beta_{}_r_{}_lr_{}_bc_{}.hdf5".format(latent_dim,
+                                                                                                            beta,
+                                                                                                            scale_r,
+                                                                                                            lr,
+                                                                                                            batch_size)
+    # filepath = "/home/gu/large_high_ld_512_beta_1_r_1_lr_0.0001.hdf5"
 
 elif mode == "check":
     IMG_SIZE = (128, 128, 3)

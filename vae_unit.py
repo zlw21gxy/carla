@@ -5,13 +5,13 @@ import keras
 from keras import backend as K
 from keras import layers
 from keras.models import Model, Sequential
-
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from sklearn.model_selection import train_test_split
 import glob
 import cv2
 from keras.datasets import mnist
+import scipy.ndimage
 
 import matplotlib.pyplot as plt
 
@@ -19,7 +19,6 @@ import matplotlib.pyplot as plt
 from config import IMG_SIZE, mode, latent_dim
 
 image_shape = IMG_SIZE
-
 
 def create_encoder(latent_dim, flag="train"):
     '''
@@ -46,7 +45,7 @@ def create_encoder(latent_dim, flag="train"):
         x = layers.Conv2D(64, 3, padding='same', activation='relu')(x)
         x = layers.Conv2D(64, 3, padding='same', activation='relu')(x)
         x = layers.Flatten()(x)
-        x = layers.Dense(64, activation='relu')(x)
+        x = layers.Dense(32, activation='relu')(x)
 
     elif image_shape == (28, 28, 1):
         x = layers.Conv2D(32, 3, padding='same', activation='relu')(encoder_iput)
@@ -208,8 +207,15 @@ def load_mnist_data(normalize=False):
         x_test = x_test.astype('float32') / 255.
         x_train -= 0.5  # rescale to [-0.5 0.5]
         x_test -= 0.5
+    else:  # resize 28 28 1 to 128 128 3 for debug purpose
+        x_train = g2r(x_train)
+        x_test = g2r(x_test)
+
+
     return (x_train, y_train), (x_test, y_test)
 
+def g2r(x):
+    return np.concatenate([x,x,x], axis=-1)
 
 def load_carla_data(normalize=False, num=None, flag="train", test_size=1649):
     if flag == "train":
@@ -237,6 +243,7 @@ def load_carla_data(normalize=False, num=None, flag="train", test_size=1649):
         x_test = (x_test.astype('float32') - 128) / 128.
         x_test += np.random.uniform(0, 1/255, x_test.shape)
     return x_train[:, :, :, ::-1], x_test[:, :, :, ::-1]  # convert BGR to RGB
+
 
 
 def plot_image_rows(images_list, title_list):
@@ -323,7 +330,6 @@ def encode(model, images):
 
 def decode(model, codes):
     return model.get_layer('decoder').predict(codes)
-
 
 def encode_decode(model, images):
     return decode(model, encode(model, images))
