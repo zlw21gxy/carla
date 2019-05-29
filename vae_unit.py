@@ -96,7 +96,8 @@ def create_decoder(latent_dim, flag="train"):
         x = layers.Dense(12544, activation='relu')(decoder_input)
         x = layers.Reshape((14, 14, 64))(x)
         x = layers.Conv2DTranspose(32, 3, padding='same', activation='relu', strides=(2, 2))(x)
-        x = layers.Conv2D(3, 3, padding='same', name='image')(x)
+        # x = layers.Conv2D(3, 3, padding='same', name='image')(x)
+        x = layers.Conv2D(3, 3, padding='same', activation='sigmoid', name='image')(x)
 
     elif image_shape == (28, 28, 1):
         x = layers.Dense(12544, activation='relu')(decoder_input)
@@ -108,6 +109,7 @@ def create_decoder(latent_dim, flag="train"):
     elif image_shape == (128, 128, 3):
         kwargs = dict(strides=(2, 2), activation="elu", padding="same")
         kwargs2 = dict(strides=(4, 4), activation="elu", padding="same")
+        # kwargs3 = dict(strides=(1, 1), padding="same", activation='sigmoid')
         kwargs3 = dict(strides=(1, 1), padding="same")
         kwargs4 = dict(strides=(2, 2), padding="same")
         x = layers.Dense(1024, activation='elu')(decoder_input)
@@ -203,10 +205,10 @@ def load_mnist_data(normalize=False):
     x_test = x_test.reshape(x_test.shape + (1,))
 
     if normalize:
-        x_train = x_train.astype('float32') / 255.
-        x_test = x_test.astype('float32') / 255.
-        x_train -= 0.5  # rescale to [-0.5 0.5]
-        x_test -= 0.5
+        x_train = (x_train.astype('float32') -128)/ 128.
+        x_test = (x_test.astype('float32') -128)/ 128.
+        # x_train -= 0.5  # rescale to [-0.5 0.5]
+        # x_test -= 0.5
     else:  # resize 28 28 1 to 128 128 3 for debug purpose
         x_train = g2r(x_train)
         x_test = g2r(x_test)
@@ -222,7 +224,7 @@ def load_carla_data(normalize=False, num=None, flag="train", test_size=1649):
         if mode == "carla":
             train_dir = "/home/gu/carla_out/train/*.jpg"
         elif mode == "carla_high":
-            train_dir = "/home/gu/carla_out/train_high/*.jpg"
+            train_dir = "/home/gu/carla_out/train_high/carla/*.jpg"
     elif flag == "test":
         train_dir = "/home/gu/carla_out/CameraRGB/*.jpg"
     file_dir = glob.glob(train_dir)
@@ -236,7 +238,8 @@ def load_carla_data(normalize=False, num=None, flag="train", test_size=1649):
         if i > num:
             break
         i += 1
-    x_train, x_test = train_test_split(np.stack(images_train), train_size=num-test_size-3, test_size=test_size)
+    x_train, x_test = train_test_split(np.stack(images_train), train_size=1000, test_size=1000)
+    # x_train, x_test = train_test_split(np.stack(images_train), train_size=num-test_size-3, test_size=test_size)
     if normalize:
         x_train = (x_train.astype('float32') - 128) / 128.
         x_train += np.random.uniform(0, 1/255, x_train.shape)
