@@ -1,7 +1,8 @@
 # mode = "mnist"
 # mode = "carla"
 # mode = "check"
-mode = "carla_high"
+# mode = "carla_high"
+mode = "mnist_upsample"
 if mode == "mnist":
     IMG_SIZE = (28, 28, 3)
     epochs = 15
@@ -13,9 +14,21 @@ if mode == "mnist":
     batch_size = 100
     use_pretrained = False
     filepath = "/home/gu/project/ppo/ppo_carla/models/mnist/ld_{}_beta_{}_r_{}.hdf5".format(latent_dim, beta, scale_r)
+
+if mode == "mnist_upsample":
+    IMG_SIZE = (128, 128, 3)
+    epochs = 15
+    latent_dim = 5
+    beta = 1
+    scale = 1
+    scale_r = 1
+    lr = 1e-4
+    batch_size = 100
+    use_pretrained = False
+    filepath = "/home/gu/project/ppo/ppo_carla/models/mnist/ld_{}_beta_{}_r_{}.hdf5".format(latent_dim, beta, scale_r)
+
 elif mode == "carla":
     IMG_SIZE = (128, 128, 3)
-    epochs = 300
     epochs = 300
     latent_dim = 1024
     beta = 1

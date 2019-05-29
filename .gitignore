@@ -4,6 +4,7 @@ __pycache__/
 # *core
 # C extensions
 *.so
+*.npy
 *.png
 # Distribution / packaging
 bin/

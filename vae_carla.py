@@ -13,6 +13,7 @@ from keras.preprocessing import image
 from keras.applications.vgg16 import preprocess_input
 from keras.callbacks import ModelCheckpoint
 import vae_unit as vae_util
+from sklearn.model_selection import train_test_split
 import cv2
 selected_pm_layer_weights = [1.0, 1.0, 1.0]  # weight for pre-train model
 
@@ -103,7 +104,7 @@ def perceptual_loss(x, t_decoded):
 
 def vae_dfc_loss(x, t_decoded):
     '''Total loss for the DFC VAE'''
-    return K.mean(0.01*perceptual_loss(x, t_decoded) + vae_dfc_kl_loss)
+    return K.mean(0.001*perceptual_loss(x, t_decoded) + vae_dfc_kl_loss)
 # def reconstruction_loss(x, t_decoded):
 #     '''Reconstruction loss for the plain VAE'''
 #     return K.sum(K.binary_crossentropy(
@@ -137,25 +138,58 @@ if mode[:5] == "carla":
     x_train = x_train.astype('float32') / 255.
     x_test = x_test.astype('float32') / 255.
 else:
-    (x_train, _), (x_test, _) = load_mnist_data(normalize=False)
-    x_train = x_train.astype('float32') / 255.
+    # (x_train, _), (x_test, _) = load_mnist_data(normalize=False)
+    # x_train = np.load("x_train.npy")
+    data = np.load("/home/gu/project/ppo/ppo_carla/data/x_test.npy")
+    data = data.astype('float32') / 255.
+    x_train, x_test = train_test_split(data, train_size=5000, test_size=1000)
+    # x_train = x_test
+    # x_train = x_train.astype('float32') / 255.
     # x_train = (x_train.astype('float32') - 128) / 128.
-    x_test = x_test.astype('float32') / 255.
-    # x_test = (x_test.astype('float32') - 128) / 128.
-    # import scipy.ndimage
-    # data = scipy.ndimage.zoom(x_train, (1, 128 / 28, 128 / 28, 1))
-    f_p_test = lambda x: (x - 128) / 128
-    train_datagen = ImageDataGenerator(preprocessing_function=f_p_test)
-    val_datagen = ImageDataGenerator(preprocessing_function=f_p_test)
-    # train_generator_ = train_datagen.flow(x_train, batch_size=100)
+    # print(x_train.shape, x_train.max(), x_train.min())
+    # print(x_test.shape, x_test.max(), x_test.min())
+    # # x_test = (x_test.astype('float32') - 128) / 128.
+    # # import scipy.ndimage
+    # # data = scipy.ndimage.zoom(x_train, (1, 128 / 28, 128 / 28, 1))
+    # f_p_test = lambda x: x / 255.
+    # f_p_test = lambda x: (x - 128) / 128
+    # train_datagen = ImageDataGenerator(preprocessing_function=f_p_test)
+    # val_datagen = ImageDataGenerator(preprocessing_function=f_p_test)
+    # # train_generator_ = train_datagen.flow(x_train, batch_size=100)
+    #
+    # def data_generator(generator):
+    #     for data in generator:
+    #         yield data, data
+    # #
+    # # train_generator = data_generator(train_datagen.flow(x_train, batch_size=100))
+    # train_generator = data_generator(train_datagen.flow(x_test, batch_size=100))
+    # val_generator = data_generator(val_datagen.flow(x_test, batch_size=100))
+    # # val_generator = train_generator
 
-    def data_generator(generator):
-        for data in generator:
-            yield data, data
-
-    train_generator = data_generator(train_datagen.flow(x_train, batch_size=100))
-    val_generator = data_generator(val_datagen.flow(x_test, batch_size=100))
-    # val_generator = train_generator
+    # batch_size = 100
+    # def generator(data, should_augment=True):
+    #     while True:
+    #         # Randomize the indices to make an array
+    #         indices_arr = np.random.permutation(len(data))
+    #         for batch in range(0, len(indices_arr), batch_size):
+    #             # slice out the current batch according to batch-size
+    #             current_batch = indices_arr[batch:(batch + batch_size)]
+    #
+    #             # initializing the arrays, x_train and y_train
+    #             x_train = np.empty(
+    #                 [0, IMG_SIZE[0], IMG_SIZE[1], IMG_SIZE[2]], dtype=np.float32)
+    #
+    #             for i in current_batch:
+    #                 # resize minist to (128 128 3) as experiment cv2.INTER_NEAREST is recommented
+    #                 # batch_size 128  Wall time: 36 µs
+    #                 image = cv2.resize(data[i], IMG_SIZE[:2], interpolation=cv2.INTER_NEAREST)
+    #                 # Appending them to existing batch
+    #                 x_train = np.append(x_train, [image], axis=0)
+    #
+    #             yield (x_train, x_train)
+    #
+    # train_generator = generator(x_train)
+    # val_generator = generator(x_test)
 
 checkpoint = ModelCheckpoint(filepath,
                              monitor='val_loss',
@@ -173,18 +207,19 @@ if use_pretrained:
     print(filepath)
     vae_dfc.load_weights(filepath)
 else:
-    vae_dfc.load_weights(filepath)
-    adam = keras.optimizers.Adam(lr=1e-4)
-    vae_dfc.compile(optimizer='adam', loss=vae_dfc_loss)
-    # vae_dfc.compile(optimizer='rmsprop', loss=vae_dfc_loss)
-    history = vae_dfc.fit_generator(train_generator,
-                                    epochs=20,
-                                    steps_per_epoch=10,
-                                    shuffle=True,
-                                    validation_data=val_generator,
-                                    validation_steps=10,
-                                    verbose=2,
-                                    callbacks=[checkpoint])
+    # vae_dfc.load_weights(filepath)
+    # adam = keras.optimizers.Adam(lr=1e-4)
+    # vae_dfc.compile(optimizer='adam', loss=vae_dfc_loss)
+    # # vae_dfc.compile(optimizer='rmsprop', loss=vae_dfc_loss)
+    # history = vae_dfc.fit_generator(train_generator,
+    #                                 epochs=20,
+    #                                 steps_per_epoch=100,
+    #                                 shuffle=True,
+    #                                 validation_data=val_generator,
+    #                                 validation_steps=100,
+    #
+    #                                 verbose=2,
+    #                                 callbacks=[checkpoint])
 
 
     # learning_rate = lr  # if we set lr to 0.005 network will blow up...that is...
@@ -196,14 +231,14 @@ else:
     #                   shuffle=True, validation_data=(x_test, x_test), verbose=2,
     #                   callbacks=[checkpoint])  # , SGDLearningRateTracker()])
 
-    # adam = keras.optimizers.Adam(lr=1e-4, beta_1=0.9, beta_2=0.999, epsilon=None)
-    # # vae_dfc.compile(optimizer='rmsprop', loss=vae_dfc_loss)
-    # vae_dfc.compile(optimizer=adam, loss=vae_dfc_loss)
-    # print(x_train.shape, x_train.max(), x_train.min())
-    # print(x_test.shape, x_test.max(), x_test.min())
-    # history = vae_dfc.fit(x=x_train, y=x_train, epochs=100, batch_size=batch_size,
-    #                   shuffle=True, validation_data=(x_test, x_test), verbose=2,
-    #                   callbacks=[checkpoint])  # , SGDLearningRateTracker()])
+    adam = keras.optimizers.Adam(lr=3e-4, beta_1=0.9, beta_2=0.999, epsilon=None)
+    # vae_dfc.compile(optimizer='rmsprop', loss=vae_dfc_loss)
+    vae_dfc.compile(optimizer=adam, loss=vae_dfc_loss)
+    print(x_train.shape, x_train.max(), x_train.min())
+    print(x_test.shape, x_test.max(), x_test.min())
+    history = vae_dfc.fit(x=x_train, y=x_train, epochs=20, batch_size=batch_size,
+                      shuffle=True, validation_data=(x_test, x_test), verbose=2,
+                      callbacks=[checkpoint])  # , SGDLearningRateTracker()])
 def encode(model, images):
     '''Encodes images with the encoder of the given auto-encoder model'''
     return model.get_layer('encoder').predict(images)[0]
@@ -229,7 +264,7 @@ if not use_pretrained:
     plt.show()
 
 # _test = (x_test - 128.) / 128.
-# x_test = train_generator.next()[0]
+# x_test = next(train_generator)[0]
 
 
 def plot_image_rows(images_list, title_list):
