@@ -25,7 +25,7 @@ except Exception:
 import gym
 from gym.spaces import Box, Discrete, Tuple
 
-from scenarios import DEFAULT_SCENARIO, LANE_KEEP, TOWN2_STRAIGHT, TOWN2_ONE_CURVE, TOWN2_CUSTOM
+from scenarios import DEFAULT_SCENARIO, LANE_KEEP, TOWN2_STRAIGHT, TOWN2_ONE_CURVE, TOWN2_CUSTOM, TOWN1_CUSTOM
 
 import os
 #
@@ -95,8 +95,8 @@ ENV_CONFIG = {
     "render_y_res": 300,
     "x_res": 128,  # cv2.resize()
     "y_res": 128,  # cv2.resize()
-    "server_map": "/Game/Maps/Town02",
-    "scenarios": TOWN2_CUSTOM,  # [LANE_KEEP]
+    "server_map": "/Game/Maps/Town01",
+    "scenarios": TOWN1_CUSTOM,  # [LANE_KEEP]
     "use_depth_camera": False,  # use depth instead of rgb.
     "discrete_actions": False,
     "squash_action_logits": False,
@@ -104,7 +104,7 @@ ENV_CONFIG = {
     "use_seg": False,  # use segmentation camera
     "VAE": True,
     "SAC": True,
-    "out_vae": False,
+    "out_vae": True,
     "action_repeat": 2,
 }
 

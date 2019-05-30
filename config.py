@@ -1,8 +1,8 @@
-# mode = "mnist"
+mode = "mnist"
 # mode = "carla"
 # mode = "check"
 # mode = "carla_high"
-mode = "mnist_upsample"
+# mode = "mnist_upsample"
 if mode == "mnist":
     IMG_SIZE = (28, 28, 3)
     epochs = 15

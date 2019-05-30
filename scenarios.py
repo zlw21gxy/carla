@@ -92,8 +92,12 @@ TOWN1_ONE_CURVE = [
     for (start, end) in POSES_TOWN1_ONE_CURVE
 ]
 
+# TOWN1_NAVIGATION = [
+#     build_scenario("Town01", start, end, 80, 0, 900, TEST_WEATHERS)
+#     for (start, end) in POSES_TOWN1_NAV
+# ]
 TOWN1_NAVIGATION = [
-    build_scenario("Town01", start, end, 0, 0, 900, TEST_WEATHERS)
+    build_scenario("Town01", start, end, 100, 0, 900, [0])
     for (start, end) in POSES_TOWN1_NAV
 ]
 
@@ -121,6 +125,8 @@ TOWN2_CUSTOM = [
     build_scenario("Town02", start, end, 80, 0, 800, [0])
     for (start, end) in POSES_TOWN2_CUSTOM
 ]
+
+TOWN1_CUSTOM = TOWN1_NAVIGATION
 
 TOWN2_NAVIGATION = [
 

@@ -1,4 +1,4 @@
-from vae_unit import load_mnist_data, plot_image_rows, load_carla_data
+from vae_unit import load_mnist_data, plot_image_rows, load_carla_data, plot_laplacian_variances
 import matplotlib.pyplot as plt
 from keras.losses import mse, binary_crossentropy
 from keras import backend as K
@@ -15,24 +15,49 @@ from keras.callbacks import ModelCheckpoint
 import vae_unit as vae_util
 from sklearn.model_selection import train_test_split
 import cv2
-selected_pm_layer_weights = [1.0, 1.0, 1.0]  # weight for pre-train model
 
-# outputs = [pm.get_layer(l).output for l in selected_pm_layers]
-# model = Model(pm.input, outputs)
-# base_model = VGG16(weights='imagenet', include_top=False)
-# selected_pm_layers = ['block2_conv1', 'block3_conv1', 'block1_conv1']
-# selected_pm_layers = ['block2_conv1', 'block3_conv1', 'block4_conv1']
+# selected_pm_layer_weights = [1.0, 1.0, 1.0]  # weight for pre-train model
+if mode[:5] == "carla":
+    f_p_train = lambda x: (x - 128 + 0 * np.random.randn(IMG_SIZE[0], IMG_SIZE[1], IMG_SIZE[2])) / 128
+    f_p_test = lambda x: (x - 128) / 128
+    # train_datagen = ImageDataGenerator(shear_range=7,
+    #                                    horizontal_flip=True,
+    #                                    preprocessing_function=f_p_train)
+    train_datagen = ImageDataGenerator(preprocessing_function=f_p_train)
+    train_generator = train_datagen.flow_from_directory(
+        '/home/gu/carla_out/data_debug/train',
+        target_size=IMG_SIZE[:2],
+        batch_size=batch_size,
+        class_mode='input')
+
+    test_datagen = ImageDataGenerator(preprocessing_function=f_p_test)
+
+    val_generator = test_datagen.flow_from_directory(
+        '/home/gu/carla_out/data_debug/train',
+        target_size=IMG_SIZE[:2],
+        batch_size=batch_size,
+        class_mode='input')
+    # x_train, x_test = load_carla_data(normalize=False, num=2100)
+    # x_train = x_train.astype('float32') / 255.
+    # x_test = x_test.astype('float32') / 255.
+else:
+    (x_train, _), (x_test, y_test) = load_mnist_data(normalize=False)
+    x_train = x_train.astype('float32') / 255.
+    x_test = x_test.astype('float32') / 255.
+    # f_p_test = lambda x: x / 255.
+    f_p_test = lambda x: (x - 128) / 128
+    train_datagen = ImageDataGenerator(preprocessing_function=f_p_test)
+    val_datagen = ImageDataGenerator(preprocessing_function=f_p_test)
 
 
-# model = Model(inputs=base_model.input, outputs=[base_model.get_layer(l).output for l in selected_pm_layers])
+    def data_generator(generator):
+        for data in generator:
+            yield data, data
 
 
-# img_path = '/home/gu/Desktop/test.jpg'
-# img = image.load_img(img_path, target_size=(28, 28))
-# x = image.img_to_array(img)
-# x = np.expand_dims(x, axis=0)
-# x = preprocess_input(x)
-# features = model.predict(x)
+    train_generator = data_generator(train_datagen.flow(x_train, batch_size=100))
+    val_generator = data_generator(val_datagen.flow(x_test, batch_size=100))
+
 
 def create_vae(latent_dim, return_kl_loss_op=False):
     '''
@@ -84,13 +109,15 @@ def perceptual_loss(x, t_decoded):
     '''Perceptual loss for the DFC VAE'''
     base_model = VGG16(weights='imagenet', include_top=False)
     selected_pm_layers = ['block1_conv1', 'block2_conv1', 'block3_conv1']
+    selected_pm_layer_weights = [1.0, 1.0, 1.0]  # weight for pre-train model
     model = Model(inputs=base_model.input, outputs=[base_model.get_layer(l).output for l in selected_pm_layers])
     model.trainable = False
-
-    # h1_list = model(128.*x + 128.)
-    # h2_list = model(128.*t_decoded + 128.)
-    h1_list = model(255.*x)
-    h2_list = model(255.*t_decoded)
+    # f_p = lambda x_: x_ * 255.  # rescale to [0 255]
+    f_p = lambda x_: x_ * 128. + 128.  # rescale to [0 255]
+    x = f_p(x)
+    t_decoded = f_p(t_decoded)
+    h1_list = model(x)
+    h2_list = model(t_decoded)
 
     rc_loss = 0.0
 
@@ -98,13 +125,17 @@ def perceptual_loss(x, t_decoded):
         h1 = K.batch_flatten(h1)
         h2 = K.batch_flatten(h2)
         rc_loss = rc_loss + weight * K.mean(K.square(h1 - h2), axis=-1)
-
+    # rc_loss += K.mean(K.square(x - t_decoded), axis=(1, 2, 3))
+    rc_loss += K.sum(K.maximum(t_decoded - 255, K.zeros_like(t_decoded)))
+    rc_loss += K.sum(K.maximum(-t_decoded, K.zeros_like(t_decoded)))
     return rc_loss
 
 
 def vae_dfc_loss(x, t_decoded):
     '''Total loss for the DFC VAE'''
-    return K.mean(0.001*perceptual_loss(x, t_decoded) + vae_dfc_kl_loss)
+    return K.mean(0.001 * perceptual_loss(x, t_decoded) + vae_dfc_kl_loss)
+
+
 # def reconstruction_loss(x, t_decoded):
 #     '''Reconstruction loss for the plain VAE'''
 #     return K.sum(K.binary_crossentropy(
@@ -113,83 +144,6 @@ def vae_dfc_loss(x, t_decoded):
 
 # Keep only a single checkpoint, the best over test loss
 
-
-if mode[:5] == "carla":
-    f_p_train = lambda x: (x - 128 + 0*np.random.randn(IMG_SIZE[0], IMG_SIZE[1], IMG_SIZE[2])) / 128
-    f_p_test = lambda x: (x - 128) / 128
-    # train_datagen = ImageDataGenerator(shear_range=7,
-    #                                    horizontal_flip=True,
-    #                                    preprocessing_function=f_p_train)
-    train_datagen = ImageDataGenerator(preprocessing_function=f_p_train)
-    train_generator = train_datagen.flow_from_directory(
-        '/home/gu/carla_out/data_debug/train',
-        target_size=IMG_SIZE[:2],
-        batch_size=batch_size,
-        class_mode='input')
-
-    test_datagen = ImageDataGenerator(preprocessing_function=f_p_test)
-
-    val_generator = test_datagen.flow_from_directory(
-        '/home/gu/carla_out/data_debug/train',
-        target_size=IMG_SIZE[:2],
-        batch_size=batch_size,
-        class_mode='input')
-    x_train, x_test = load_carla_data(normalize=False, num=2100)
-    x_train = x_train.astype('float32') / 255.
-    x_test = x_test.astype('float32') / 255.
-else:
-    # (x_train, _), (x_test, _) = load_mnist_data(normalize=False)
-    # x_train = np.load("x_train.npy")
-    data = np.load("/home/gu/project/ppo/ppo_carla/data/x_test.npy")
-    data = data.astype('float32') / 255.
-    x_train, x_test = train_test_split(data, train_size=5000, test_size=1000)
-    # x_train = x_test
-    # x_train = x_train.astype('float32') / 255.
-    # x_train = (x_train.astype('float32') - 128) / 128.
-    # print(x_train.shape, x_train.max(), x_train.min())
-    # print(x_test.shape, x_test.max(), x_test.min())
-    # # x_test = (x_test.astype('float32') - 128) / 128.
-    # # import scipy.ndimage
-    # # data = scipy.ndimage.zoom(x_train, (1, 128 / 28, 128 / 28, 1))
-    # f_p_test = lambda x: x / 255.
-    # f_p_test = lambda x: (x - 128) / 128
-    # train_datagen = ImageDataGenerator(preprocessing_function=f_p_test)
-    # val_datagen = ImageDataGenerator(preprocessing_function=f_p_test)
-    # # train_generator_ = train_datagen.flow(x_train, batch_size=100)
-    #
-    # def data_generator(generator):
-    #     for data in generator:
-    #         yield data, data
-    # #
-    # # train_generator = data_generator(train_datagen.flow(x_train, batch_size=100))
-    # train_generator = data_generator(train_datagen.flow(x_test, batch_size=100))
-    # val_generator = data_generator(val_datagen.flow(x_test, batch_size=100))
-    # # val_generator = train_generator
-
-    # batch_size = 100
-    # def generator(data, should_augment=True):
-    #     while True:
-    #         # Randomize the indices to make an array
-    #         indices_arr = np.random.permutation(len(data))
-    #         for batch in range(0, len(indices_arr), batch_size):
-    #             # slice out the current batch according to batch-size
-    #             current_batch = indices_arr[batch:(batch + batch_size)]
-    #
-    #             # initializing the arrays, x_train and y_train
-    #             x_train = np.empty(
-    #                 [0, IMG_SIZE[0], IMG_SIZE[1], IMG_SIZE[2]], dtype=np.float32)
-    #
-    #             for i in current_batch:
-    #                 # resize minist to (128 128 3) as experiment cv2.INTER_NEAREST is recommented
-    #                 # batch_size 128  Wall time: 36 µs
-    #                 image = cv2.resize(data[i], IMG_SIZE[:2], interpolation=cv2.INTER_NEAREST)
-    #                 # Appending them to existing batch
-    #                 x_train = np.append(x_train, [image], axis=0)
-    #
-    #             yield (x_train, x_train)
-    #
-    # train_generator = generator(x_train)
-    # val_generator = generator(x_test)
 
 checkpoint = ModelCheckpoint(filepath,
                              monitor='val_loss',
@@ -201,44 +155,32 @@ checkpoint = ModelCheckpoint(filepath,
 vae, vae_kl_loss = create_vae(latent_dim, return_kl_loss_op=True)
 vae_dfc, vae_dfc_kl_loss = create_vae(latent_dim, return_kl_loss_op=True)
 
-
-use_pretrained = 0
+use_pretrained = 1
 if use_pretrained:
     print(filepath)
     vae_dfc.load_weights(filepath)
 else:
     # vae_dfc.load_weights(filepath)
-    # adam = keras.optimizers.Adam(lr=1e-4)
-    # vae_dfc.compile(optimizer='adam', loss=vae_dfc_loss)
-    # # vae_dfc.compile(optimizer='rmsprop', loss=vae_dfc_loss)
-    # history = vae_dfc.fit_generator(train_generator,
-    #                                 epochs=20,
-    #                                 steps_per_epoch=100,
-    #                                 shuffle=True,
-    #                                 validation_data=val_generator,
-    #                                 validation_steps=100,
-    #
-    #                                 verbose=2,
-    #                                 callbacks=[checkpoint])
+    adam = keras.optimizers.Adam(lr=1e-4)
+    vae_dfc.compile(optimizer=adam, loss=vae_dfc_loss)
+    # vae_dfc.compile(optimizer='rmsprop', loss=vae_dfc_loss)
+    history = vae_dfc.fit_generator(train_generator,
+                                    epochs=20,
+                                    steps_per_epoch=100,
+                                    shuffle=True,
+                                    validation_data=val_generator,
+                                    validation_steps=100,
+                                    verbose=2,
+                                    callbacks=[checkpoint])
 
-
-    # learning_rate = lr  # if we set lr to 0.005 network will blow up...that is...
-    # decay_rate = 0
-    # adam = keras.optimizers.Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=None, decay=decay_rate,
+    # adam = keras.optimizers.Adam(lr=lr, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0,
     #                              amsgrad=False)
-    # vae.compile(optimizer=adam, loss=vae_loss)
+    # vae.compile(optimizer="adam", loss=vae_loss)
     # history = vae.fit(x=x_train, y=x_train, epochs=epochs, batch_size=batch_size,
     #                   shuffle=True, validation_data=(x_test, x_test), verbose=2,
     #                   callbacks=[checkpoint])  # , SGDLearningRateTracker()])
 
-    adam = keras.optimizers.Adam(lr=3e-4, beta_1=0.9, beta_2=0.999, epsilon=None)
-    # vae_dfc.compile(optimizer='rmsprop', loss=vae_dfc_loss)
-    vae_dfc.compile(optimizer=adam, loss=vae_dfc_loss)
-    print(x_train.shape, x_train.max(), x_train.min())
-    print(x_test.shape, x_test.max(), x_test.min())
-    history = vae_dfc.fit(x=x_train, y=x_train, epochs=20, batch_size=batch_size,
-                      shuffle=True, validation_data=(x_test, x_test), verbose=2,
-                      callbacks=[checkpoint])  # , SGDLearningRateTracker()])
+
 def encode(model, images):
     '''Encodes images with the encoder of the given auto-encoder model'''
     return model.get_layer('encoder').predict(images)[0]
@@ -264,30 +206,32 @@ if not use_pretrained:
     plt.show()
 
 # _test = (x_test - 128.) / 128.
-# x_test = next(train_generator)[0]
-
-
-def plot_image_rows(images_list, title_list):
-    rows = len(images_list)
-    cols = len(images_list[0])
-
-    def plot_image_row(images, title):
-        plt.figure(figsize=(cols, 3))
-        plt.gcf().suptitle(title)
-        for i, img in enumerate(images):
-            plt.subplot(rows, cols, i + 1)
-            plt.imshow(img)
-            plt.axis('off')
-
-    for images, title in zip(images_list, title_list):
-        plot_image_row(images, title)
-
-
+# x_test = next(val_generator)[0]
 selected_idx = np.random.choice(range(x_test.shape[0]), 10, replace=False)
+# selected_idx = np.random.choice(range(x_train.shape[0]), 10, replace=False)
 selected = x_test[selected_idx]
 selected_dec_vae = encode_decode(vae_dfc, selected)
+print("select:", "min:", selected.min(), "max:", selected.max(), "mean:", selected.mean())
+print("select_vae:", "min:", selected_dec_vae.min(), "max:", selected_dec_vae.max(), "mean:", selected_dec_vae.mean())
 
 plot_image_rows([selected, selected_dec_vae],
                 ['Original images',
                  'Images generated by plain VAE'])
+
+plt.figure()
+
+
+def laplacian_variance(images):
+    return [cv2.Laplacian(image, cv2.CV_32F).var() for image in images]
+
+
+x_dec_vae = encode_decode(vae, x_test)
+x_dec_vae_dfc = encode_decode(vae_dfc, x_test)
+
+not_ones = y_test != 1
+lvs_1 = laplacian_variance(x_test[not_ones])
+lvs_2 = laplacian_variance(x_dec_vae[not_ones])
+lvs_3 = laplacian_variance(x_dec_vae_dfc[not_ones])
+
+plot_laplacian_variances(lvs_1, lvs_2, lvs_3, title='Laplacian variance of digit images (class != 1)')
 plt.show()
