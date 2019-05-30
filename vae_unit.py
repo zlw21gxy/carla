@@ -21,7 +21,7 @@ from config import IMG_SIZE, mode, latent_dim
 image_shape = IMG_SIZE
 
 
-def create_encoder(latent_dim):
+def create_encoder(latent_dim, flag="train"):
     '''
     Creates a convolutional encoder model for MNIST images.
 
@@ -31,8 +31,16 @@ def create_encoder(latent_dim):
       variance.
     '''
     encoder_iput = layers.Input(shape=image_shape, name='image')
-
-    if image_shape == (28, 28, 3):
+    if flag == "env":
+        kwargs = dict(strides=(2, 2), activation="elu", padding="same")
+        x = layers.Conv2D(48, 3, **kwargs)(encoder_iput)
+        x = layers.Conv2D(64, 3, **kwargs)(x)
+        x = layers.Conv2D(72, 3, **kwargs)(x)
+        x = layers.Conv2D(256, 3, **kwargs)(x)
+        x = layers.Conv2D(600, 3, **kwargs)(x)
+        x = keras.layers.GlobalAveragePooling2D()(x)
+        x = layers.Dense(512, activation="elu")(x)
+    elif image_shape == (28, 28, 3):
         x = layers.Conv2D(32, 3, padding='same', activation='relu')(encoder_iput)
         x = layers.Conv2D(64, 3, padding='same', activation='relu', strides=(2, 2))(x)
         x = layers.Conv2D(64, 3, padding='same', activation='relu')(x)
@@ -66,7 +74,7 @@ def create_encoder(latent_dim):
     return Model(encoder_iput, [t_mean, t_log_var], name='encoder')
 
 
-def create_decoder(latent_dim):
+def create_decoder(latent_dim, flag="train"):
     '''
     Creates a (de-)convolutional decoder model for MNIST images.
 
@@ -75,13 +83,23 @@ def create_decoder(latent_dim):
       the value of each pixel is the probability of being white.
     '''
     decoder_input = layers.Input(shape=(latent_dim,), name='t')
-    if image_shape == (28, 28, 3):
+    if flag == "env":
+        kwargs = dict(strides=(2, 2), activation="elu", padding="same")
+        x = layers.Dense(1024, activation='elu')(decoder_input)
+        x = layers.Reshape((4, 4, 64))(x)
+        x = layers.Conv2DTranspose(48, 3, **kwargs)(x)
+        x = layers.Conv2DTranspose(48, 3, **kwargs)(x)
+        x = layers.Conv2DTranspose(32, 3, **kwargs)(x)
+        x = layers.Conv2DTranspose(24, 3, **kwargs)(x)
+        x = layers.Conv2DTranspose(3, 3, **kwargs)(x)
+
+    elif image_shape == (28, 28, 3):
         x = layers.Dense(12544, activation='relu')(decoder_input)
         x = layers.Reshape((14, 14, 64))(x)
         x = layers.Conv2DTranspose(32, 3, padding='same', activation='relu', strides=(2, 2))(x)
         x = layers.Conv2D(3, 3, padding='same', name='image')(x)
 
-    if image_shape == (28, 28, 1):
+    elif image_shape == (28, 28, 1):
         x = layers.Dense(12544, activation='relu')(decoder_input)
         x = layers.Reshape((14, 14, 64))(x)
         x = layers.Conv2DTranspose(32, 3, padding='same', activation='relu', strides=(2, 2))(x)
@@ -193,14 +211,14 @@ def load_mnist_data(normalize=False):
     return (x_train, y_train), (x_test, y_test)
 
 
-def load_carla_data(normalize=False, num=None):
-    if mode == "carla":
-        train_dir = "/home/gu/carla_out/train/*.jpg"
-    elif mode == "carla_high":
-        # train_dir = "/home/gu/carla_out/CameraRGB/*.jpg"
+def load_carla_data(normalize=False, num=None, flag="train", test_size=1649):
+    if flag == "train":
+        if mode == "carla":
+            train_dir = "/home/gu/carla_out/train/*.jpg"
+        elif mode == "carla_high":
+            train_dir = "/home/gu/carla_out/train_high/*.jpg"
+    elif flag == "test":
         train_dir = "/home/gu/carla_out/CameraRGB/*.jpg"
-    else:
-        print("wrong mode")
     file_dir = glob.glob(train_dir)
     if not num:
         num = len(file_dir)
@@ -212,12 +230,12 @@ def load_carla_data(normalize=False, num=None):
         if i > num:
             break
         i += 1
-    x_train, x_test = train_test_split(np.stack(images_train), train_size=num-10002, test_size=10000)
+    x_train, x_test = train_test_split(np.stack(images_train), train_size=num-test_size-3, test_size=test_size)
     if normalize:
         x_train = (x_train.astype('float32') - 128) / 128.
-        x_train += np.random.uniform(0, 2/255, x_train.shape)
+        x_train += np.random.uniform(0, 1/255, x_train.shape)
         x_test = (x_test.astype('float32') - 128) / 128.
-        x_test += np.random.uniform(0, 2/255, x_test.shape)
+        x_test += np.random.uniform(0, 1/255, x_test.shape)
     return x_train[:, :, :, ::-1], x_test[:, :, :, ::-1]  # convert BGR to RGB
 
 
@@ -233,8 +251,11 @@ def plot_image_rows(images_list, title_list):
                 plt.subplot(rows, cols, i + 1)
             else:
                 plt.subplot(rows, cols, cols + i + 1)
-            img += 0.5  # rescale to [0, 255]
-            img = img * 255
+            # img += 0.5  # rescale to [0, 255]
+            # img = img * 255
+
+            img = img * 128
+            img += 128  # rescale to [0, 255]
             num_channel = img.shape[-1]
             if num_channel == 1:
                 plt.imshow(np.clip(img[:, :, 0].astype("int32"), 0, 255))
@@ -264,8 +285,8 @@ class SGDLearningRateTracker(keras.callbacks.Callback):
 
 
 def create_vae(latent_dim, return_kl_loss_op=False):
-    encoder = create_encoder(latent_dim)
-    decoder = create_decoder(latent_dim)
+    encoder = create_encoder(latent_dim, flag="train")
+    decoder = create_decoder(latent_dim, flag="train")
     sampler = create_sampler()
 
     x = layers.Input(shape=IMG_SIZE, name='image')

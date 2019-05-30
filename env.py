@@ -28,11 +28,9 @@ from gym.spaces import Box, Discrete, Tuple
 from scenarios import DEFAULT_SCENARIO, LANE_KEEP, TOWN2_STRAIGHT, TOWN2_ONE_CURVE, TOWN2_CUSTOM
 
 import os
-
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-
-# The GPU id to use, usually either "0" or "1";
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+#
+# os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 
 # Set this where you want to save image outputs (or empty string to disable)
 CARLA_OUT_PATH = os.environ.get("CARLA_OUT", os.path.expanduser("~/carla_out"))
@@ -92,7 +90,7 @@ ENV_CONFIG = {
     "enable_planner": True,
     "framestack": 1,  # note: only [1, 2] currently supported
     "early_terminate_on_collision": True,
-    "reward_function": "custom",
+    "reward_function": "custom2",
     "render_x_res": 400,
     "render_y_res": 300,
     "x_res": 128,  # cv2.resize()
@@ -100,11 +98,14 @@ ENV_CONFIG = {
     "server_map": "/Game/Maps/Town02",
     "scenarios": TOWN2_CUSTOM,  # [LANE_KEEP]
     "use_depth_camera": False,  # use depth instead of rgb.
-    "discrete_actions": True,
+    "discrete_actions": False,
     "squash_action_logits": False,
     "encode_measurement": True,  # encode measurement information into channel
     "use_seg": False,  # use segmentation camera
     "VAE": True,
+    "SAC": True,
+    "out_vae": False,
+    "action_repeat": 2,
 }
 
 k = 0
@@ -174,7 +175,7 @@ class CarlaEnv(gym.Env):
             image_space = Box(
                 0,
                 255,
-                shape=(2, 256),
+                shape=(515,),
                 dtype=np.float32)
         self.observation_space = Tuple(
             [
@@ -205,7 +206,8 @@ class CarlaEnv(gym.Env):
         self.last_obs = None
         self.latent_dim = 256
         self.vae = create_vae(self.latent_dim, return_kl_loss_op=False)
-        filepath = "/home/gu/project/ppo/ppo_carla/models/carla_model/high_ld_256_beta_1_r_1_lr_0.0001.hdf5"
+        # filepath = "/home/gu/project/ppo/ppo_carla/models/carla_model/high_ld_256_beta_1_r_1_lr_0.0001.hdf5"
+        filepath = "/home/gu/project/ppo/ppo_carla/models/carla_model/large_high_ld_256_beta_1.2_r_1_lr_0.0001_bc_128.hdf5"
         self.vae.load_weights(filepath)
         self.vae.trainable = False
 
@@ -391,7 +393,22 @@ class CarlaEnv(gym.Env):
         # print("speed", py_measurements["forward_speed"])
         if ENV_CONFIG["VAE"]:
             image_in = np.stack([image, prev_image], axis=0)
-            latent_encode = encode(self.vae, image_in)
+            latent_encode = encode(self.vae, image_in)   # encode image to latent space
+            if ENV_CONFIG["out_vae"]:
+                out_dir = os.path.join(CARLA_OUT_PATH, "vae")
+                if not os.path.exists(out_dir):
+                    os.makedirs(out_dir)
+                out_file = os.path.join(
+                    out_dir, "{}_{:>04}.jpg".format(self.episode_id,
+                                                    self.num_steps))
+                image = decode(self.vae, np.expand_dims(latent_encode[-1], axis=0))
+                scipy.misc.imsave(out_file, np.squeeze(image))
+
+            if ENV_CONFIG["SAC"]:
+                metric = np.array([COMMAND_ORDINAL[py_measurements["next_command"]]/4,
+                                           py_measurements["forward_speed"]/30,
+                                           py_measurements["distance_to_goal"]/100])
+                latent_encode = np.append(latent_encode.flatten(), metric)
             obs = (latent_encode, COMMAND_ORDINAL[py_measurements["next_command"]], [
                 py_measurements["forward_speed"],
                 py_measurements["distance_to_goal"]
@@ -448,7 +465,8 @@ class CarlaEnv(gym.Env):
 
     def step(self, action):
         try:
-            obs = self._step(action)
+            for _ in range(ENV_CONFIG["action_repeat"]):
+                obs = self._step(action)
             return obs
         except Exception:
             print("Error during step, terminating episode early",
@@ -545,6 +563,24 @@ class CarlaEnv(gym.Env):
         return (self.encode_obs(image, py_measurements), reward, done,
                 py_measurements)
 
+    # def images_to_video(self):
+    #     videos_dir = os.path.join(CARLA_OUT_PATH, "Videos")
+    #     if not os.path.exists(videos_dir):
+    #         os.makedirs(videos_dir)
+    #     ffmpeg_cmd = (
+    #         "ffmpeg -loglevel -8 -r 60 -f image2 -s {x_res}x{y_res} "
+    #         "-start_number 0 -i "
+    #         "{img}_%04d.jpg -vcodec libx264 {vid}.mp4 && rm -f {img}_*.jpg "
+    #     ).format(
+    #         x_res=self.config["render_x_res"],
+    #         y_res=self.config["render_y_res"],
+    #         vid=os.path.join(videos_dir, self.episode_id),
+    #         # img=os.path.join(CARLA_OUT_PATH, "CameraRGB", self.episode_id))
+    #         img=os.path.join(CARLA_OUT_PATH, "vae", self.episode_id))
+    #     print("Executing ffmpeg command", ffmpeg_cmd)
+    #     subprocess.call(ffmpeg_cmd, shell=True)
+
+
     def images_to_video(self):
         videos_dir = os.path.join(CARLA_OUT_PATH, "Videos")
         if not os.path.exists(videos_dir):
@@ -554,10 +590,11 @@ class CarlaEnv(gym.Env):
             "-start_number 0 -i "
             "{img}_%04d.jpg -vcodec libx264 {vid}.mp4 && rm -f {img}_*.jpg "
         ).format(
-            x_res=self.config["render_x_res"],
-            y_res=self.config["render_y_res"],
+            x_res=self.config["x_res"],
+            y_res=self.config["y_res"],
             vid=os.path.join(videos_dir, self.episode_id),
-            img=os.path.join(CARLA_OUT_PATH, "CameraRGB", self.episode_id))
+            # img=os.path.join(CARLA_OUT_PATH, "CameraRGB", self.episode_id))
+            img=os.path.join(CARLA_OUT_PATH, "vae", self.episode_id))
         print("Executing ffmpeg command", ffmpeg_cmd)
         subprocess.call(ffmpeg_cmd, shell=True)
 
@@ -589,8 +626,8 @@ class CarlaEnv(gym.Env):
             # print(sensor_data["CameraRGB"].data.shape, sensor_data["CameraDepth"].data.shape)
             #observation = np.concatenate(((sensor_data["CameraRGB"].data.astype(np.float32)-128)/128,
             #                            (sensor_data["CameraDepth"].data[:, :, np.newaxis] - 0.5)*0.5), axis=2)
-            # observation = (sensor_data["CameraRGB"].data.astype(np.float32) - 128)/128
-            observation = (sensor_data["CameraRGB"].data.astype(np.float32)/255) - 0.5
+            observation = (sensor_data["CameraRGB"].data.astype(np.float32) - 128)/128
+            # observation = (sensor_data["CameraRGB"].data.astype(np.float32)/255) - 0.5
             # print("observation_shape", observation.shape)
 
         else:
@@ -762,17 +799,17 @@ def compute_reward_custom(env, prev, current):
 def compute_reward_custom_2(env, prev, current):
     reward = 0.0
 
-    cur_dist = current["distance_to_goal"]
-    prev_dist = prev["distance_to_goal"]
-
-    if env.config["verbose"]:
-        print("Cur dist {}, prev dist {}".format(cur_dist, prev_dist))
+    # cur_dist = current["distance_to_goal"]
+    # prev_dist = prev["distance_to_goal"]
+    # print(">>>>>>>>>>", prev_dist - cur_dist)
+    # if env.config["verbose"]:
+    #     print("Cur dist {}, prev dist {}".format(cur_dist, prev_dist))
 
     # Distance travelled toward the goal in m
-    reward += 0.5 * np.clip(prev_dist - cur_dist, -12.0, 12.0)
+    # reward += 0.3 * np.clip(prev_dist - cur_dist, -12.0, 12.0)
 
     # Speed reward, up 30.0 (km/h)
-    reward += np.clip(current["forward_speed"], 0.0, 30.0) / 10
+    reward += np.clip(current["forward_speed"], 0.0, 30.0) / 6
     if current["forward_speed"] > 40:
         reward -= (current["forward_speed"] - 40)/12
     # New collision damage
@@ -781,16 +818,16 @@ def compute_reward_custom_2(env, prev, current):
         current["collision_other"] - prev["collision_vehicles"] -
         prev["collision_pedestrians"] - prev["collision_other"])
     if new_damage:
-        reward -= 10 + 3*current["forward_speed"]
-
-    reward -= np.clip(10 * current["forward_speed"] * int(current["intersection_offroad"] > 0.001), 0, 50)   # [0, 1]
+        reward -= 15 + (current["forward_speed"]/3)**2
+        print("<<<<<<<<<<<<<<<<<<damage>>>>>>>>>>>>>>>>>>>")
+    reward -= 0.03 * (current["control"]["steer"]**2)
+    reward -= np.clip(10 * current["forward_speed"] * int(current["intersection_offroad"] > 0.001), 0, 20)   # [0, 1]
     reward -= 4 * current["intersection_otherlane"]  # [0, 1]
     reward -= 0.03 if current["forward_speed"] < 1 else 0
 
-    if current["next_command"] == "REACH_GOAL":
-        reward += 200.0
-        print('bro, you reach the goal, well done!!!')
-
+    # if current["next_command"] == "REACH_GOAL":
+    #     reward += 10
+    #     print('bro, you reach the goal, well done!!!')
     return reward
 
 def compute_reward_lane_keep(env, prev, current):
@@ -819,7 +856,7 @@ def compute_reward_lane_keep(env, prev, current):
 REWARD_FUNCTIONS = {
     "corl2017": compute_reward_corl2017,
     "custom": compute_reward_custom,
-    "custom2": compute_reward_custom,
+    "custom2": compute_reward_custom_2,
     "lane_keep": compute_reward_lane_keep,
 }
 def compute_reward(env, prev, current):
@@ -867,9 +904,8 @@ if __name__ == "__main__":
         print(obs[0].shape) 
         start = time.time
         # import matplotlib.pyplot as plt
-        # plt.imshow(obs[0])
         # plt.show()
-        start = time.time()
+        # plt.imshow(obs[0])
         done = False
         i = 0
         total_reward = 0.0
@@ -878,11 +914,14 @@ if __name__ == "__main__":
             i += 1
             if i > 1000:
                 i = 0
+                env.images_to_video()
                 env.reset()
             if ENV_CONFIG["discrete_actions"]:
                 obs, reward, done, info = env.step(1)
                 # print(obs[0].shape)
             else:
-                obs, reward, done, info = env.step([1, 0])
+                obs, reward, done, info = env.step([0, 0])
+                print(obs[0].shape)
+                # print(reward)
             total_reward += reward
         # print("{:.2f} fps".format(float(i / (time.time() - start))))

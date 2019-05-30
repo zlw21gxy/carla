@@ -28,7 +28,7 @@ elif mode == "carla":
 elif mode == "carla_high":
     IMG_SIZE = (128, 128, 3)
     epochs = 1000
-    latent_dim = 256
+    latent_dim = 128
     beta = 1.2
     scale =  1
     scale_r = 1

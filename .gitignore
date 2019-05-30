@@ -1,7 +1,7 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
-*core
+# *core
 # C extensions
 *.so
 *.png
@@ -31,7 +31,7 @@ pip-delete-this-directory.txt
 nosetests.xml
 coverage.xml
 models/
-*core*
+# *core*
 *.h5
 # Translations
 *.mo
