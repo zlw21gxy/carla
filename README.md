@@ -7,5 +7,10 @@ for now using ray to train a ppo agent
 4. choose which camera to use in env.py
 5. pip install ray first
 ## use vae for feature extract
-1. lr = 1e-5 otherwise doesn't converge
+1. lr = 1e-4 otherwise doesn't converge
 2. 10k trainig example, record on carla
+## training
+1. run vae_carla.py directly
+2. change file dir in vae_unit.py if u want use your own dataset
+3. change config for trainig in config.py
+4. image size (128 128 3) (28 28 3) (28 28 1) are available for now 
