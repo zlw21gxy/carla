@@ -30,13 +30,13 @@ elif mode == "carla_high":
     epochs = 1000
     latent_dim = 256
     beta = 1.2
-    scale = (1 + beta)/ beta
+    scale =  1
     scale_r = 1
-    lr = 1e-4
-    batch_size = 100
+    lr = 0.5e-4
+    batch_size = 128
     use_pretrained = False
-    # filepath = "/home/gu/project/ppo/ppo_carla/models/carla/high_ld_{}_beta_{}_r_{}_lr_{}_bc_{}.hdf5".format(latent_dim, beta,
-    filepath = "/home/gu/project/ppo/ppo_carla/models/carla/high_ld_512_beta_1_r_1_lr_0.0001.hdf5"
+    filepath = "/home/gu/project/ppo/ppo_carla/models/carla/large_high_ld_{}_beta_{}_r_{}_lr_{}_bc_{}.hdf5".format(latent_dim, beta, scale_r, lr, batch_size)
+    # filepath = "/home/gu/project/ppo/ppo_carla/models/carla/large_high_ld_256_beta_1.2_r_1_lr_0.0001.hdf5"
 
 elif mode == "check":
     IMG_SIZE = (128, 128, 3)

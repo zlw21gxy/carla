@@ -197,6 +197,7 @@ def load_carla_data(normalize=False, num=None):
     if mode == "carla":
         train_dir = "/home/gu/carla_out/train/*.jpg"
     elif mode == "carla_high":
+        # train_dir = "/home/gu/carla_out/CameraRGB/*.jpg"
         train_dir = "/home/gu/carla_out/CameraRGB/*.jpg"
     else:
         print("wrong mode")
@@ -211,7 +212,7 @@ def load_carla_data(normalize=False, num=None):
         if i > num:
             break
         i += 1
-    x_train, x_test = train_test_split(np.stack(images_train), train_size=num-1655, test_size=1649)
+    x_train, x_test = train_test_split(np.stack(images_train), train_size=num-10002, test_size=10000)
     if normalize:
         x_train = (x_train.astype('float32') - 128) / 128.
         x_train += np.random.uniform(0, 2/255, x_train.shape)
