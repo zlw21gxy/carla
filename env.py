@@ -15,7 +15,7 @@ import subprocess
 import sys
 import time
 import traceback
-from vae_unit import encode, create_vae, decode
+# from vae_unit import encode, create_vae, decode
 import numpy as np
 try:
     import scipy.misc
@@ -28,6 +28,7 @@ from gym.spaces import Box, Discrete, Tuple
 from scenarios import DEFAULT_SCENARIO, LANE_KEEP, TOWN2_STRAIGHT, TOWN2_ONE_CURVE, TOWN2_CUSTOM
 
 import os
+from dim import encoder, model_train
 #
 # os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 # os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
@@ -93,8 +94,8 @@ ENV_CONFIG = {
     "reward_function": "custom2",
     "render_x_res": 400,
     "render_y_res": 300,
-    "x_res": 128,  # cv2.resize()
-    "y_res": 128,  # cv2.resize()
+    "x_res": 256,  # cv2.resize()
+    "y_res": 256,  # cv2.resize()
     "server_map": "/Game/Maps/Town02",
     "scenarios": TOWN2_CUSTOM,  # [LANE_KEEP]
     "use_depth_camera": False,  # use depth instead of rgb.
@@ -173,8 +174,8 @@ class CarlaEnv(gym.Env):
         # The Observation Space
         if config["VAE"]:
             image_space = Box(
-                0,
-                255,
+                -10,
+                10,
                 shape=(515,),
                 dtype=np.float32)
         self.observation_space = Tuple(
@@ -205,11 +206,14 @@ class CarlaEnv(gym.Env):
         self.end_coord = None
         self.last_obs = None
         self.latent_dim = 256
-        self.vae = create_vae(self.latent_dim, return_kl_loss_op=False)
+        self.encoder = encoder
+        # self.encoder.load_weights("dim_test.ckpt")
+        self.encoder.load_weights('ckpt/dim_large.ckpt')
+        # code = encoder.predict(data)
+        # self.vae = model_train.load_weights('ckpt/dim.ckpt')
         # filepath = "/home/gu/project/ppo/ppo_carla/models/carla_model/high_ld_256_beta_1_r_1_lr_0.0001.hdf5"
-        filepath = "/home/gu/project/ppo/ppo_carla/models/carla_model/large_high_ld_256_beta_1.2_r_1_lr_0.0001_bc_128.hdf5"
-        self.vae.load_weights(filepath)
-        self.vae.trainable = False
+        # self.vae.load_weights(filepath)
+        self.encoder.trainable = False
 
     def init_server(self):
         print("Initializing new Carla server...")
@@ -321,20 +325,20 @@ class CarlaEnv(gym.Env):
         camera2.set_position(1.2, 0.0, 1.7)
         settings.add_sensor(camera2)
 
-        if self.config["use_seg"]:
-            camera1 = Camera("CameraDepth", PostProcessing="Depth")
-            camera1.set_image_size(self.config["render_x_res"],
-                                   self.config["render_y_res"])
-            # camera1.set_position(30, 0, 170)
-            camera1.set_position(0.5, 0.0, 1.6)
-            camera1.set(FOV=120)
-            settings.add_sensor(camera1)
-            camera3 = Camera('Segmentation', PostProcessing='SemanticSegmentation')
-            camera3.set(FOV=120.0)
-            camera3.set_image_size(self.config["render_x_res"],
-                                   self.config["render_y_res"])
-            camera3.set_position(x=0.50, y=0.0, z=1.6)
-            settings.add_sensor(camera3)
+        # if self.config["use_seg"]:
+        #     camera1 = Camera("CameraDepth", PostProcessing="Depth")
+        #     camera1.set_image_size(self.config["render_x_res"],
+        #                            self.config["render_y_res"])
+        #     # camera1.set_position(30, 0, 170)
+        #     camera1.set_position(0.5, 0.0, 1.6)
+        #     camera1.set(FOV=120)
+        #     settings.add_sensor(camera1)
+        #     camera3 = Camera('Segmentation', PostProcessing='SemanticSegmentation')
+        #     camera3.set(FOV=120.0)
+        #     camera3.set_image_size(self.config["render_x_res"],
+        #                            self.config["render_y_res"])
+        #     camera3.set_position(x=0.50, y=0.0, z=1.6)
+        #     settings.add_sensor(camera3)
 
         # Setup start and end positions
         scene = self.client.load_settings(settings)
@@ -370,54 +374,55 @@ class CarlaEnv(gym.Env):
         if prev_image is None:
             prev_image = image
 
-        feature_map = np.zeros([4, 4])
-        feature_map[1, :] = (py_measurements["forward_speed"] - 30) / 30
-        feature_map[1, 3] = py_measurements["intersection_otherlane"]
-        feature_map[2, :] = (COMMAND_ORDINAL[py_measurements["next_command"]] - 2) / 2
-        feature_map[0, 0] = py_measurements["x_orient"]
-        feature_map[0, 1] = py_measurements["y_orient"]
-        feature_map[0, 2] = (py_measurements["distance_to_goal"] - 170) / 170
-        feature_map[0, 1] = (py_measurements["distance_to_goal_euclidean"] - 170) / 170
-        feature_map[3, 0] = (py_measurements["x"] - 50) / 150
-        feature_map[3, 1] = (py_measurements["y"] - 50) / 150
-        feature_map[3, 2] = (py_measurements["end_coord"][0] - 150) / 150
-        feature_map[3, 3] = (py_measurements["end_coord"][1] - 150) / 150
-        feature_map = np.tile(feature_map, (32, 32))
-        image_ = np.concatenate(
-               [prev_image, image, feature_map[:, :, np.newaxis]], axis=2)
+        # feature_map = np.zeros([4, 4])
+        # feature_map[1, :] = (py_measurements["forward_speed"] - 30) / 30
+        # feature_map[1, 3] = py_measurements["intersection_otherlane"]
+        # feature_map[2, :] = (COMMAND_ORDINAL[py_measurements["next_command"]] - 2) / 2
+        # feature_map[0, 0] = py_measurements["x_orient"]
+        # feature_map[0, 1] = py_measurements["y_orient"]
+        # feature_map[0, 2] = (py_measurements["distance_to_goal"] - 170) / 170
+        # feature_map[0, 1] = (py_measurements["distance_to_goal_euclidean"] - 170) / 170
+        # feature_map[3, 0] = (py_measurements["x"] - 50) / 150
+        # feature_map[3, 1] = (py_measurements["y"] - 50) / 150
+        # feature_map[3, 2] = (py_measurements["end_coord"][0] - 150) / 150
+        # feature_map[3, 3] = (py_measurements["end_coord"][1] - 150) / 150
+        # feature_map = np.tile(feature_map, (32, 32))
+        # image_ = np.concatenate(
+        #        [prev_image, image, feature_map[:, :, np.newaxis]], axis=2)
         # obs = (image, COMMAND_ORDINAL[py_measurements["next_command"]], [
         #     py_measurements["forward_speed"],
         #     py_measurements["distance_to_goal"]
         # ])
         # print('distance to goal', py_measurements["distance_to_goal"])
         # print("speed", py_measurements["forward_speed"])
-        if ENV_CONFIG["VAE"]:
-            image_in = np.stack([image, prev_image], axis=0)
-            latent_encode = encode(self.vae, image_in)   # encode image to latent space
-            if ENV_CONFIG["out_vae"]:
-                out_dir = os.path.join(CARLA_OUT_PATH, "vae")
-                if not os.path.exists(out_dir):
-                    os.makedirs(out_dir)
-                out_file = os.path.join(
-                    out_dir, "{}_{:>04}.jpg".format(self.episode_id,
-                                                    self.num_steps))
-                image = decode(self.vae, np.expand_dims(latent_encode[-1], axis=0))
-                scipy.misc.imsave(out_file, np.squeeze(image))
+        # if ENV_CONFIG["VAE"]:
+        image_in = np.stack([image, prev_image], axis=0)
+        latent_encode = self.encoder.predict(image_in)   # encode image to latent space
+        # if ENV_CONFIG["out_vae"]:
+        #     out_dir = os.path.join(CARLA_OUT_PATH, "vae")
+        #     if not os.path.exists(out_dir):
+        #         os.makedirs(out_dir)
+        #     out_file = os.path.join(
+        #         out_dir, "{}_{:>04}.jpg".format(self.episode_id,
+        #                                         self.num_steps))
+        #     image = decode(self.vae, np.expand_dims(latent_encode[-1], axis=0))
+        #     scipy.misc.imsave(out_file, np.squeeze(image))
 
-            if ENV_CONFIG["SAC"]:
-                metric = np.array([COMMAND_ORDINAL[py_measurements["next_command"]]/4,
-                                           py_measurements["forward_speed"]/30,
-                                           py_measurements["distance_to_goal"]/100])
-                latent_encode = np.append(latent_encode.flatten(), metric)
-            obs = (latent_encode, COMMAND_ORDINAL[py_measurements["next_command"]], [
-                py_measurements["forward_speed"],
-                py_measurements["distance_to_goal"]
-            ])
-        else:
-            obs = (image_, COMMAND_ORDINAL[py_measurements["next_command"]], [
-                py_measurements["forward_speed"],
-                py_measurements["distance_to_goal"]
-            ])
+        if ENV_CONFIG["SAC"]:
+            metric = np.array([COMMAND_ORDINAL[py_measurements["next_command"]]/4,
+                                       py_measurements["forward_speed"]/30,
+                                       py_measurements["distance_to_goal"]/100])
+            latent_encode = np.append(latent_encode.flatten(order="F"), metric)
+
+        obs = (latent_encode, COMMAND_ORDINAL[py_measurements["next_command"]], [
+            py_measurements["forward_speed"],
+            py_measurements["distance_to_goal"]
+        ])
+        # else:
+        #     obs = (image_, COMMAND_ORDINAL[py_measurements["next_command"]], [
+        #         py_measurements["forward_speed"],
+        #         py_measurements["distance_to_goal"]
+        #     ])
         self.last_obs = obs
 
         return obs
@@ -619,27 +624,27 @@ class CarlaEnv(gym.Env):
             print_measurements(measurements)
 
         observation = None
-        if self.config["use_seg"]:
-            observation = np.concatenate(((sensor_data["Segmentation"].data[:, :, np.newaxis] - 7)/7,
-                                        (sensor_data["CameraDepth"].data[:, :, np.newaxis] - 0.5)*0.5), axis=2)
-        elif self.config["encode_measurement"]:
+        # if self.config["use_seg"]:
+        #     observation = np.concatenate(((sensor_data["Segmentation"].data[:, :, np.newaxis] - 7)/7,
+        #                                 (sensor_data["CameraDepth"].data[:, :, np.newaxis] - 0.5)*0.5), axis=2)
+        # elif self.config["encode_measurement"]:
             # print(sensor_data["CameraRGB"].data.shape, sensor_data["CameraDepth"].data.shape)
             #observation = np.concatenate(((sensor_data["CameraRGB"].data.astype(np.float32)-128)/128,
             #                            (sensor_data["CameraDepth"].data[:, :, np.newaxis] - 0.5)*0.5), axis=2)
-            observation = (sensor_data["CameraRGB"].data.astype(np.float32) - 128)/128
+        observation = (sensor_data["CameraRGB"].data.astype(np.float32) - 128)/128
             # observation = (sensor_data["CameraRGB"].data.astype(np.float32)/255) - 0.5
             # print("observation_shape", observation.shape)
 
-        else:
-            if self.config["use_depth_camera"]:
-                camera_name = "CameraDepth"
-
-            else:
-                camera_name = "CameraRGB"
-
-            for name, image in sensor_data.items():
-                if name == camera_name:
-                    observation = image
+        # else:
+        #     if self.config["use_depth_camera"]:
+        #         camera_name = "CameraDepth"
+        #
+        #     else:
+        #         camera_name = "CameraRGB"
+        #
+        #     for name, image in sensor_data.items():
+        #         if name == camera_name:
+        #             observation = image
 
         cur = measurements.player_measurements
 
@@ -823,7 +828,7 @@ def compute_reward_custom_2(env, prev, current):
     reward -= 0.03 * (current["control"]["steer"]**2)
     reward -= np.clip(10 * current["forward_speed"] * int(current["intersection_offroad"] > 0.001), 0, 20)   # [0, 1]
     reward -= 4 * current["intersection_otherlane"]  # [0, 1]
-    reward -= 0.03 if current["forward_speed"] < 1 else 0
+    # reward -= 0.001 if current["forward_speed"] < 1 else 0  # 0.03
 
     # if current["next_command"] == "REACH_GOAL":
     #     reward += 10
@@ -921,7 +926,7 @@ if __name__ == "__main__":
                 # print(obs[0].shape)
             else:
                 obs, reward, done, info = env.step([0, 0])
-                print(obs[0].shape)
+                print(obs[0].shape, obs[0].mean(), obs[0].std())
                 # print(reward)
             total_reward += reward
         # print("{:.2f} fps".format(float(i / (time.time() - start))))

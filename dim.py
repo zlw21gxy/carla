@@ -3,6 +3,10 @@ from sklearn.model_selection import train_test_split
 import cv2
 import glob
 import imageio
+
+from skimage.io import imread
+from skimage.transform import resize
+
 from keras.models import Model
 from keras.layers import *
 from keras import backend as K
@@ -15,25 +19,58 @@ from tensorflow.python.keras.utils.data_utils import get_file
 # from tensorflow.python.util.tf_export import keras_export
 import os
 import keras
+import time
 from keras.preprocessing.image import ImageDataGenerator
 
 img_dim = 256
 lr = 1e-4
-epochs = 601
+epochs = 60
 z_dim = 256  # 隐变量维度
 alpha = 0.5  # 全局互信息的loss比重
 beta = 1.5  # 局部互信息的loss比重
 gamma = 0.01  # 先验分布的loss比重
+# mode = "load"
 mode = "gen"
-batch_size = 128
+batch_size = 256
 img_shape = (256, 256, 3)
+import warnings
+
+warnings.filterwarnings("ignore")
+
+
+class MY_Generator(keras.utils.Sequence):
+
+    def __init__(self, train_dir="/home/gu/carla_out2/train/carla/*", batch_size=128):
+        self.image_filenames = glob.glob(train_dir)
+        self.batch_size = batch_size
+
+    def __len__(self):
+        return int(np.ceil(len(self.image_filenames) / float(self.batch_size)))
+
+    @staticmethod
+    def _preprocess(batch_x):
+        # data_x = np.array([resize(imread(file_name), (256, 256)) for file_name in batch_x])
+        data_x = np.array(
+            [cv2.resize(cv2.imread(file_name), img_shape[:2], interpolation=cv2.INTER_AREA) for file_name in batch_x])
+        data_x = (data_x + np.random.randn(256, 256, 3) - 128.) / 128.
+        return data_x
+
+    def __getitem__(self, idx):
+        batch_x = self.image_filenames[idx * self.batch_size:(idx + 1) * self.batch_size]
+        # batch_y = self.labels[idx * self.batch_size:(idx + 1) * self.batch_size]
+        data_x = self._preprocess(batch_x)
+        # data_x = (np.array([
+        #     resize(imread(file_name), (256, 256))
+        #     for file_name in batch_x])/128.)-128.
+
+        return data_x, data_x
 
 
 def load_carla_data(normalize=False, num=None, flag="train"):
     if flag == "train":
         train_dir = "/home/gu/carla_out/train/*.jpg"
     elif flag == "test":
-        train_dir = "/home/gu/carla_out2/train/*.jpg"
+        train_dir = "/home/gu/carla_out2/train/carla/*"
     file_dir = glob.glob(train_dir)
     if not num:
         num = len(file_dir)
@@ -47,6 +84,7 @@ def load_carla_data(normalize=False, num=None, flag="train"):
         i += 1
     # x_train, x_test = train_test_split(np.stack(images_train), train_size=num-test_size-3, test_size=test_size)
     x_train = np.stack(images_train)
+    print("training set:", len(x_train))
     if normalize:
         x_train = (x_train.astype('float32') - 128) / 128.
         x_train += np.random.uniform(0, 1 / 255, x_train.shape)
@@ -55,31 +93,31 @@ def load_carla_data(normalize=False, num=None, flag="train"):
     return x_train[:, :, :, ::-1]  # , x_test[:, :, :, ::-1]  # convert BGR to RGB
 
 
-if mode == "load":
-    x_train = load_carla_data(normalize=True, flag="train")
-
-elif mode == "gen":
-
-    f_p_train = lambda x: (x - 128 + 0 * np.random.randn(img_shape[0], img_shape[1], img_shape[2])) / 128
-    f_p_test = lambda x: (x - 128) / 128
-    # train_datagen = ImageDataGenerator(shear_range=7,
-    #                                    horizontal_flip=True,
-    #                                    preprocessing_function=f_p_train)
-    train_datagen = ImageDataGenerator(preprocessing_function=f_p_train)
-
-    train_generator = train_datagen.flow_from_directory(
-        '/home/gu/carla_out2/train',
-        target_size=img_shape[:2],
-        batch_size=batch_size,
-        class_mode='input')
-
-    test_datagen = ImageDataGenerator(preprocessing_function=f_p_test)
-
-    val_generator = test_datagen.flow_from_directory(
-        '/home/gu/carla_out2/train',
-        target_size=img_shape[:2],
-        batch_size=batch_size,
-        class_mode='input')
+# if mode == "load":
+#     x_train = load_carla_data(normalize=True, flag="test")
+#
+# elif mode == "gen":
+#
+#     f_p_train = lambda x: (x - 128 + 0 * np.random.randn(img_shape[0], img_shape[1], img_shape[2])) / 128
+#     f_p_test = lambda x: (x - 128) / 128
+#     # train_datagen = ImageDataGenerator(shear_range=7,
+#     #                                    horizontal_flip=True,
+#     #                                    preprocessing_function=f_p_train)
+#     train_datagen = ImageDataGenerator(preprocessing_function=f_p_train)
+#
+#     train_generator = train_datagen.flow_from_directory(
+#         '/home/gu/carla_out2/train',
+#         target_size=img_shape[:2],
+#         batch_size=batch_size,
+#         class_mode='input')
+#
+#     test_datagen = ImageDataGenerator(preprocessing_function=f_p_test)
+#
+#     val_generator = test_datagen.flow_from_directory(
+#         '/home/gu/carla_out2/train',
+#         target_size=img_shape[:2],
+#         batch_size=batch_size,
+#         class_mode='input')
 
 # x_train = x_train.astype('float32') / 255 - 0.5
 # x_test = x_test.astype('float32') / 255 - 0.5
@@ -89,10 +127,18 @@ elif mode == "gen":
 x_in = Input(shape=img_shape)
 x = x_in
 
-for i in range(3):
-    x = Conv2D(int(z_dim / 2 ** (2 - i)),
+x = Conv2D(16,
+           kernel_size=(5, 5),
+           strides=(2, 2),
+           padding='SAME')(x)
+x = BatchNormalization()(x)
+x = LeakyReLU(0.2)(x)
+x = MaxPooling2D((2, 2))(x)
+
+for i in range(4):
+    x = Conv2D(int(z_dim / 2 ** (3 - i)),
                kernel_size=(3, 3),
-               strides=(2, 2),
+               strides=(1, 1),
                padding='SAME')(x)
 
     x = BatchNormalization()(x)
@@ -102,7 +148,7 @@ for i in range(3):
 feature_map = x  # 截断到这里，认为到这里是feature_map（局部特征）
 feature_map_encoder = Model(x_in, x)
 
-for i in range(2):
+for i in range(3):
     x = Conv2D(z_dim,
                kernel_size=(3, 3),
                padding='SAME')(x)
@@ -189,34 +235,48 @@ model_train = Model(x_in, z_mean)
 
 model_train.compile(optimizer=Adam(lr),
                     loss=dim_loss)
-load_model = 0
 
-if load_model:
-    model_train.load_weights('total_model.cifar10.weights')
-else:
-    checkpointer = keras.callbacks.ModelCheckpoint(filepath='ckpt/dim.ckpt', verbose=1, save_best_only=False,
-                                                   save_weights_only=True, period=1)
-    # model_train.fit(x_train, epochs=epochs, batch_size=128, verbose=2, callbacks=[checkpointer])
-    # model_train.save_weights('total_model.cifar10.weights')
+if __name__=="__main__":
+    load_model = 0
 
-    history = model_train.fit_generator(train_generator,
-                                        epochs=20,
-                                        steps_per_epoch=5,
-                                        shuffle=True,
-                                        validation_data=val_generator,
-                                        validation_steps=5,
-                                        verbose=2,
-                                        callbacks=[checkpointer])
+    if load_model:
+        model_train.load_weights('total_model.cifar10.weights')
+    else:
+        checkpointer = keras.callbacks.ModelCheckpoint(filepath='dim_test.ckpt',
+                                                       verbose=1,
+                                                       save_best_only=True,
+                                                       monitor='val_loss',
+                                                       save_weights_only=True,
+                                                       period=1)
+        # model_train.fit(x_train, epochs=epochs, batch_size=128, verbose=2, callbacks=[checkpointer])
+        # model_train.save_weights('total_model.cifar10.weights')
+        start = time.time()
+        # train_generator = MY_Generator(train_dir="/home/gu/carla_out/train/*")
+        train_generator = MY_Generator()
+        # val_generator = MY_Generator(train_dir="/home/gu/carla_out_data/dim_test/*")
+        val_generator = MY_Generator()
+        history = model_train.fit_generator(train_generator,
+                                            epochs=epochs,
+                                            steps_per_epoch=len(train_generator),
+                                            shuffle=True,
+                                            validation_data=val_generator,
+                                            validation_steps=len(val_generator),
+                                            verbose=1,
+                                            workers=12,
+                                            use_multiprocessing=True,
+                                            max_queue_size=64,
+                                            callbacks=[checkpointer])
 
-# 输出编码器的特征
-zs = encoder.predict(x_train, verbose=True)
-print("prior info", "mean", zs.mean(), "std", zs.std())
-# if 0:
-#     np.save("x_train", zs)
-#     # np.save("y_train", y_train)
-#     # zs_test = encoder.predict(x_test)
-#     # np.save("x_test", zs_test)
-#     # np.save("y_test", y_test)
+    # 输出编码器的特征
+    zs = encoder.predict(load_carla_data(normalize=True, flag="test"), verbose=True)
+    print("prior info", "mean", zs.mean(), "std", zs.std())
+    print("TIME:", time.time() - start)
+    # if 0:
+    #     np.save("x_train", zs)
+    #     # np.save("y_train", y_train)
+    #     # zs_test = encoder.predict(x_test)
+    #     # np.save("x_test", zs_test)
+    #     # np.save("y_test", y_test)
 
-# zs.mean()  # 查看均值（简单观察先验分布有没有达到效果）
-# zs.std()  # 查看方差（简单观察先验分布有没有达到效果）
+    # zs.mean()  # 查看均值（简单观察先验分布有没有达到效果）
+    # zs.std()  # 查看方差（简单观察先验分布有没有达到效果）
