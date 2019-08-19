@@ -158,19 +158,19 @@ class CarlaEnv(gym.Env):
                 dtype=np.uint8)
         # encode_measure ---> rgb + measurement_encode + pre_rgb #channel_type
         # 3 + 3 + 1 = 7 #channel_number
-        if config["encode_measurement"]:
-             image_space = Box(
-                 0,
-                 255,
-                 shape=(config["y_res"], config["x_res"], 7),
-                 dtype=np.float32)
-
-        if config["use_seg"]:
-            image_space = Box(
-                0,
-                255,
-                shape=(config["y_res"], config["x_res"], 5),
-                dtype=np.float32)
+        # if config["encode_measurement"]:
+        #      image_space = Box(
+        #          0,
+        #          255,
+        #          shape=(config["y_res"], config["x_res"], 7),
+        #          dtype=np.float32)
+        #
+        # if config["use_seg"]:
+        #     image_space = Box(
+        #         0,
+        #         255,
+        #         shape=(config["y_res"], config["x_res"], 5),
+        #         dtype=np.float32)
         # The Observation Space
         if config["VAE"]:
             image_space = Box(
@@ -205,7 +205,7 @@ class CarlaEnv(gym.Env):
         self.start_coord = None
         self.end_coord = None
         self.last_obs = None
-        self.latent_dim = 256
+        # self.latent_dim = 256
         self.encoder = encoder
         # self.encoder.load_weights("dim_test.ckpt")
         self.encoder.load_weights('ckpt/dim_large.ckpt')

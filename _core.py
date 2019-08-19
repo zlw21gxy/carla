@@ -13,9 +13,14 @@ def placeholders(*args):
 
 
 def mlp(x, hidden_sizes=(32,), activation=tf.tanh, output_activation=None):
+    with tf.name_scope("carla_vision"):
+        vision_out = tf.layers.dense(x[..., :512], units=520, activation=activation)
+    with tf.name_scope("carla_metric"):
+        metric_out = tf.layers.dense(x[..., -3:], units=20, activation=activation)
+    concat_in = tf.concat([vision_out, metric_out], axis=1)
     for h in hidden_sizes[:-1]:
-        x = tf.layers.dense(x, units=h, activation=activation)
-    return tf.layers.dense(x, units=hidden_sizes[-1], activation=output_activation)
+        concat_in = tf.layers.dense(concat_in, units=h, activation=activation)
+    return tf.layers.dense(concat_in, units=hidden_sizes[-1], activation=output_activation)
 
 
 def get_vars(scope):
@@ -92,15 +97,12 @@ Actor-Critics
 """
 
 
-def mlp_actor_critic(x, x2, a, hidden_sizes=(400, 300), activation=tf.nn.relu,
+def mlp_actor_critic(x, a, hidden_sizes=(400, 300), activation=tf.nn.elu,
                      output_activation=None, policy=mlp_gaussian_policy, action_space=None):
     # policy
     with tf.variable_scope('pi'):
         mu, pi, logp_pi = policy(x, a, hidden_sizes, activation, output_activation)
         mu, pi, logp_pi = apply_squashing_func(mu, pi, logp_pi)
-    with tf.variable_scope('pi', reuse=True):
-        mu2, pi2, logp_pi2 = policy(x2, a, hidden_sizes, activation, output_activation)
-        mu2, pi2, logp_pi2 = apply_squashing_func(mu2, pi2, logp_pi2)
 
     # make sure actions are in correct range
     action_scale = action_space.high[0]
@@ -108,7 +110,6 @@ def mlp_actor_critic(x, x2, a, hidden_sizes=(400, 300), activation=tf.nn.relu,
     pi *= action_scale
 
     # vfs
-    # tf.squeeze( shape(?,1), axis=1 ) = shape(?,)
     vf_mlp = lambda x: tf.squeeze(mlp(x, list(hidden_sizes) + [1], activation, None), axis=1)
     with tf.variable_scope('q1'):
         q1 = vf_mlp(tf.concat([x, a], axis=-1))
@@ -118,5 +119,6 @@ def mlp_actor_critic(x, x2, a, hidden_sizes=(400, 300), activation=tf.nn.relu,
         q2 = vf_mlp(tf.concat([x, a], axis=-1))
     with tf.variable_scope('q2', reuse=True):
         q2_pi = vf_mlp(tf.concat([x, pi], axis=-1))
-
-    return mu, pi, logp_pi, logp_pi2, q1, q2, q1_pi, q2_pi
+    with tf.variable_scope('v'):
+        v = vf_mlp(x)
+    return mu, pi, logp_pi, q1, q2, q1_pi, q2_pi, v
