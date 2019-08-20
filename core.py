@@ -12,10 +12,20 @@ def placeholders(*args):
     return [placeholder(dim) for dim in args]
 
 
+# def mlp(x, hidden_sizes=(32,), activation=tf.tanh, output_activation=None):
+#     for h in hidden_sizes[:-1]:
+#         x = tf.layers.dense(x, units=h, activation=activation)
+#     return tf.layers.dense(x, units=hidden_sizes[-1], activation=output_activation)
+
 def mlp(x, hidden_sizes=(32,), activation=tf.tanh, output_activation=None):
+    with tf.name_scope("carla_vision"):
+        vision_out = tf.layers.dense(x[..., :512], units=520, activation=activation)
+    with tf.name_scope("carla_metric"):
+        metric_out = tf.layers.dense(x[..., -3:], units=20, activation=activation)
+    concat_in = tf.concat([vision_out, metric_out], axis=1)
     for h in hidden_sizes[:-1]:
-        x = tf.layers.dense(x, units=h, activation=activation)
-    return tf.layers.dense(x, units=hidden_sizes[-1], activation=output_activation)
+        concat_in = tf.layers.dense(concat_in, units=h, activation=activation)
+    return tf.layers.dense(concat_in, units=hidden_sizes[-1], activation=output_activation)
 
 
 def get_vars(scope):

@@ -85,7 +85,7 @@ GROUND_Z = 0.22
 
 # Default environment configuration
 ENV_CONFIG = {
-    "log_images": True,  # log images in _read_observation().
+    "log_images": False,  # log images in _read_observation().
     "convert_images_to_video": False,  # convert log_images to videos. when "verbose" is True.
     "verbose": False,    # print measurement information; write out measurement json file
     "enable_planner": True,
@@ -178,12 +178,13 @@ class CarlaEnv(gym.Env):
                 10,
                 shape=(515,),
                 dtype=np.float32)
-        self.observation_space = Tuple(
-            [
-                image_space,
-                Discrete(len(COMMANDS_ENUM)),  # next_command
-                Box(-128.0, 128.0, shape=(2, ), dtype=np.float32)  # forward_speed, dist to goal
-            ])
+        self.observation_space = image_space
+        # self.observation_space = Tuple(
+        #     [
+        #         image_space,
+        #         Discrete(len(COMMANDS_ENUM)),  # next_command
+        #         Box(-128.0, 128.0, shape=(2, ), dtype=np.float32)  # forward_speed, dist to goal
+        #     ])
 
         # TODO(ekl) this isn't really a proper gym spec
         self._spec = lambda: None
@@ -208,7 +209,7 @@ class CarlaEnv(gym.Env):
         # self.latent_dim = 256
         self.encoder = encoder
         # self.encoder.load_weights("dim_test.ckpt")
-        self.encoder.load_weights('ckpt/dim_large.ckpt')
+        self.encoder.load_weights('dim_large.ckpt')
         # code = encoder.predict(data)
         # self.vae = model_train.load_weights('ckpt/dim.ckpt')
         # filepath = "/home/gu/project/ppo/ppo_carla/models/carla_model/high_ld_256_beta_1_r_1_lr_0.0001.hdf5"
@@ -470,8 +471,8 @@ class CarlaEnv(gym.Env):
 
     def step(self, action):
         try:
-            for _ in range(ENV_CONFIG["action_repeat"]):
-                obs = self._step(action)
+            # for _ in range(ENV_CONFIG["action_repeat"]):
+            obs = self._step(action)
             return obs
         except Exception:
             print("Error during step, terminating episode early",
@@ -815,6 +816,7 @@ def compute_reward_custom_2(env, prev, current):
 
     # Speed reward, up 30.0 (km/h)
     reward += np.clip(current["forward_speed"], 0.0, 30.0) / 6
+    print("forward speed", current["forward_speed"])
     if current["forward_speed"] > 40:
         reward -= (current["forward_speed"] - 40)/12
     # New collision damage

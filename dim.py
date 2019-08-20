@@ -9,6 +9,7 @@ from skimage.transform import resize
 
 from keras.models import Model
 from keras.layers import *
+from datetime import datetime
 from keras import backend as K
 from keras.optimizers import Adam
 from keras.datasets import cifar10
@@ -21,18 +22,23 @@ import os
 import keras
 import time
 from keras.preprocessing.image import ImageDataGenerator
+import strgen
 
-img_dim = 256
+# img_dim = 256
 lr = 1e-4
-epochs = 60
+epochs = 100
 z_dim = 256  # 隐变量维度
-alpha = 0.5  # 全局互信息的loss比重
-beta = 1.5  # 局部互信息的loss比重
-gamma = 0.01  # 先验分布的loss比重
+# alpha = 0.5  # 全局互信息的loss比重
+# beta = 1.5  # 局部互信息的loss比重
+# gamma = 0.01  # 先验分布的loss比重
+
+alpha, beta, gamma = 0.5, 1.7, 0.1
+# alpha, beta, gamma = 0.35, 1.35, 0.1
 # mode = "load"
 mode = "gen"
 batch_size = 256
-img_shape = (256, 256, 3)
+img_shape = (128, 128, 3)
+# img_shape = (256, 256, 3)
 import warnings
 
 warnings.filterwarnings("ignore")
@@ -40,7 +46,7 @@ warnings.filterwarnings("ignore")
 
 class MY_Generator(keras.utils.Sequence):
 
-    def __init__(self, train_dir="/home/gu/carla_out2/train/carla/*", batch_size=128):
+    def __init__(self, train_dir="/home/gu/carla_out2/data/train/*", batch_size=128):
         self.image_filenames = glob.glob(train_dir)
         self.batch_size = batch_size
 
@@ -52,7 +58,7 @@ class MY_Generator(keras.utils.Sequence):
         # data_x = np.array([resize(imread(file_name), (256, 256)) for file_name in batch_x])
         data_x = np.array(
             [cv2.resize(cv2.imread(file_name), img_shape[:2], interpolation=cv2.INTER_AREA) for file_name in batch_x])
-        data_x = (data_x + np.random.randn(256, 256, 3) - 128.) / 128.
+        data_x = (data_x + np.random.random(img_shape) - 128.) / 128.
         return data_x
 
     def __getitem__(self, idx):
@@ -66,15 +72,22 @@ class MY_Generator(keras.utils.Sequence):
         return data_x, data_x
 
 
-def load_carla_data(normalize=False, num=None, flag="train"):
-    if flag == "train":
-        train_dir = "/home/gu/carla_out/train/*.jpg"
-    elif flag == "test":
-        train_dir = "/home/gu/carla_out2/train/carla/*"
+def load_carla_data(image_shape=(256, 256),
+                    normalize=False, num=None,
+                    flag="train",
+                    train_dir="/home/gu/carla_out2/data/train/*"):
+    if train_dir:
+        pass
+    else:
+        if flag == "train":
+            train_dir = "/home/gu/carla_out2/data/train/*"
+        elif flag == "test":
+            train_dir = "/home/gu/carla_out2/data/test/*"
+
     file_dir = glob.glob(train_dir)
     if not num:
         num = len(file_dir)
-    image_shape = (256, 256)
+
     i = 0
     images_train = []
     for file in file_dir:
@@ -127,16 +140,21 @@ def load_carla_data(normalize=False, num=None, flag="train"):
 x_in = Input(shape=img_shape)
 x = x_in
 
-x = Conv2D(16,
-           kernel_size=(5, 5),
-           strides=(2, 2),
-           padding='SAME')(x)
-x = BatchNormalization()(x)
-x = LeakyReLU(0.2)(x)
-x = MaxPooling2D((2, 2))(x)
+if img_shape[0] == 256:
+    x = Conv2D(16,  # 256 64
+               kernel_size=(5, 5),
+               strides=(2, 2),
+               padding='SAME')(x)
+    x = BatchNormalization()(x)
+    x = LeakyReLU(0.2)(x)
+    x = MaxPooling2D((2, 2))(x)
 
-for i in range(4):
-    x = Conv2D(int(z_dim / 2 ** (3 - i)),
+    n = 4
+else:
+    n = 5  # 128 128 3
+
+for i in range(n):  # 64 32 16 8 4/ 128 64 32 16 8 4
+    x = Conv2D(int(z_dim / 2 ** (n - 1 - i)),
                kernel_size=(3, 3),
                strides=(1, 1),
                padding='SAME')(x)
@@ -236,25 +254,27 @@ model_train = Model(x_in, z_mean)
 model_train.compile(optimizer=Adam(lr),
                     loss=dim_loss)
 
-if __name__=="__main__":
+if __name__ == "__main__":
     load_model = 0
 
     if load_model:
         model_train.load_weights('total_model.cifar10.weights')
     else:
-        checkpointer = keras.callbacks.ModelCheckpoint(filepath='dim_test.ckpt',
-                                                       verbose=1,
-                                                       save_best_only=True,
-                                                       monitor='val_loss',
-                                                       save_weights_only=True,
-                                                       period=1)
+        checkpointer = keras.callbacks.ModelCheckpoint(
+            # filepath='ckpt/dim_test{}_128.ckpt'.format(datetime.now().strftime('%Y-%m-%d %H:%M:%S')[-8:]),
+            filepath='ckpt/l_dim_alpha_{}_beta_{}_gamma_{}_img_{}.ckpt'.format(alpha, beta, gamma, img_shape[0]),
+            verbose=1,
+            save_best_only=True,
+            monitor='val_loss',
+            save_weights_only=True,
+            period=1)
         # model_train.fit(x_train, epochs=epochs, batch_size=128, verbose=2, callbacks=[checkpointer])
         # model_train.save_weights('total_model.cifar10.weights')
         start = time.time()
-        # train_generator = MY_Generator(train_dir="/home/gu/carla_out/train/*")
-        train_generator = MY_Generator()
-        # val_generator = MY_Generator(train_dir="/home/gu/carla_out_data/dim_test/*")
-        val_generator = MY_Generator()
+        train_generator = MY_Generator(train_dir="/home/gu/carla_out/train/*")
+        # train_generator = MY_Generator("/home/gu/carla_out2/data/train/*")
+        val_generator = MY_Generator(train_dir="/home/gu/carla_out_data/dim_test/*")
+        # val_generator = MY_Generator("/home/gu/carla_out2/data/test/*")
         history = model_train.fit_generator(train_generator,
                                             epochs=epochs,
                                             steps_per_epoch=len(train_generator),
@@ -266,9 +286,10 @@ if __name__=="__main__":
                                             use_multiprocessing=True,
                                             max_queue_size=64,
                                             callbacks=[checkpointer])
+        model_train.save_weights('ckpt/l_end_dim_alpha_{}_beta_{}_gamma_{}_img_{}.ckpt'.format(alpha, beta, gamma, img_shape[0]))
 
     # 输出编码器的特征
-    zs = encoder.predict(load_carla_data(normalize=True, flag="test"), verbose=True)
+    zs = encoder.predict(load_carla_data(img_shape[:2], normalize=True, train_dir="/home/gu/carla_out_data/town1_data/*"), verbose=True)
     print("prior info", "mean", zs.mean(), "std", zs.std())
     print("TIME:", time.time() - start)
     # if 0:

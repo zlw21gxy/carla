@@ -134,7 +134,9 @@ def sac1(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     tf.set_random_seed(seed)
     np.random.seed(seed)
 
-    env, test_env = env_fn(), env_fn()
+    # env, test_env = env_fn(), env_fn()
+    env, test_env = env_fn(3), env_fn(1)
+
     obs_dim = env.observation_space.shape[0]
     act_dim = env.action_space.shape[0]
 
@@ -161,8 +163,7 @@ def sac1(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     # Count variables
     var_counts = tuple(core.count_vars(scope) for scope in 
                        ['main/pi', 'main/q1', 'main/q2', 'main'])
-    print(('\nNumber of parameters: \t pi: %d, \t' + \
-           'q1: %d, \t q2: %d, \t total: %d\n')%var_counts)
+    print(('\nNumber of parameters: \t pi: %d, \t'+'q1: %d, \t q2: %d, \t total: %d\n')%var_counts)
 
 ######
     if alpha == 'auto':
@@ -313,7 +314,7 @@ def sac1(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             #     logger.save_state({'env': env}, None)
 
             # Test the performance of the deterministic version of the agent.
-            test_agent(25)
+            test_agent(10)
 
             # logger.store(): store the data; logger.log_tabular(): log the data; logger.dump_tabular(): write the data
             # Log info about epoch
@@ -339,26 +340,63 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     # parser.add_argument('--env', type=str, default='BipedalWalkerHardcore-v2')  # 'Pendulum-v0'
-    parser.add_argument('--env', type=str, default='Humanoid-v2')
-    # parser.add_argument('--env', type=str, default='LunarLanderContinuous-v2')
+    # parser.add_argument('--env', type=str, default='Carla-v0')
+    parser.add_argument('--env', type=str, default='LunarLanderContinuous-v2')
     parser.add_argument('--hid', type=int, default=300)
     parser.add_argument('--l', type=int, default=1)
     parser.add_argument('--gamma', type=float, default=0.99)
+    # parser.add_argument('--obs_noise', type=float, default=1e-3)
     parser.add_argument('--seed', '-s', type=int, default=0)
     parser.add_argument('--epochs', type=int, default=10000)
-    parser.add_argument('--alpha', default=0.2, help="alpha can be either 'auto' or float(e.g:0.2).")
+    parser.add_argument('--alpha', default="auto", help="alpha can be either 'auto' or float(e.g:0.2).")
     # parser.add_argument('--exp_name', type=str, default='sac1_Humanoid-v2_baseline')
-    name = 'sac1_baseline_{}_alpha_{}_seed_{}'.format(
-        parser.parse_args().env,
-        parser.parse_args().alpha,
-        parser.parse_args().seed)
+    # name = 'sac1_baseline_{}_alpha_{}_seed_{}'.format(
+    #     parser.parse_args().env,
+    #     parser.parse_args().alpha,
+    #     parser.parse_args().seed)
+    name = "carla_0.5_1.5_0.01_256_dim_large_sac"
     parser.add_argument('--exp_name', type=str, default=name)  
     args = parser.parse_args()
 
     from spinup.utils.run_utils import setup_logger_kwargs
     logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed)
 
-    sac1(lambda : gym.make(args.env), actor_critic=core.mlp_actor_critic,
+    class Wrapper(object):
+
+        def __init__(self, env, action_repeat=3, obs_noise=1e-3):
+            self._env = env
+            self.action_repeat = action_repeat
+            self.observation_space = env.observation_space
+            self.action_space = env.action_space
+            self.obs_noise = obs_noise
+
+        def __getattr__(self, name):
+            return getattr(self._env, name)
+
+        def reset(self):
+            obs = self._env.reset()[0] + self.obs_noise * np.random.randn(515)
+            return obs
+
+        def step(self, action):
+            # action += args.act_noise * np.random.randn(2)
+            r = 0.0
+            for _ in range(self.action_repeat):
+                obs_, reward_, done_, info_ = self._env.step(action)
+                r = r + reward_
+                # r -= 0.001
+                # if done_ and self.action_repeat!=1:
+                #     return obs_+  args.obs_noise * (-2 * np.random.random(24) + 1), 0.0, done_, info_
+                # if self.action_repeat==1:
+                #     return obs_, r, done_, info_
+            return obs_[0]+self.obs_noise*np.random.randn(515), r, done_, info_
+
+    from env import CarlaEnv
+    make_carla = lambda: CarlaEnv()
+    env3 = Wrapper(CarlaEnv(), 3, 1e-3)
+    env1 = Wrapper(CarlaEnv(), 1, 0)
+
+
+    sac1(lambda n : env3 if n==3 else env1, actor_critic=core.mlp_actor_critic,
         ac_kwargs=dict(hidden_sizes=[400, 300]),
         gamma=args.gamma, seed=args.seed, epochs=args.epochs, alpha=args.alpha,
         logger_kwargs=logger_kwargs)
