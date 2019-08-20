@@ -20,3 +20,5 @@ for now using ray to train a ppo agent
 3. agent can driving alongside the road but can't avoid collision with other cars
 ## Debug
 1. use mnist for debug purpose
+## DIM
+1. deep info max for representaion learning
