@@ -32,7 +32,7 @@ z_dim = 256  # 隐变量维度
 # beta = 1.5  # 局部互信息的loss比重
 # gamma = 0.01  # 先验分布的loss比重
 
-alpha, beta, gamma = 0.5, 1.7, 0.1
+alpha, beta, gamma = 0.35, 1.35, 0.1
 # alpha, beta, gamma = 0.35, 1.35, 0.1
 # mode = "load"
 mode = "gen"
@@ -275,6 +275,10 @@ if __name__ == "__main__":
         # train_generator = MY_Generator("/home/gu/carla_out2/data/train/*")
         val_generator = MY_Generator(train_dir="/home/gu/carla_out_data/dim_test/*")
         # val_generator = MY_Generator("/home/gu/carla_out2/data/test/*")
+        try:
+            model_train.load_weights('ckpt/l_dim_alpha_{}_beta_{}_gamma_{}_img_{}.ckpt'.format(alpha, beta, gamma, img_shape[0]))
+        except:
+            pass
         history = model_train.fit_generator(train_generator,
                                             epochs=epochs,
                                             steps_per_epoch=len(train_generator),
@@ -282,7 +286,7 @@ if __name__ == "__main__":
                                             validation_data=val_generator,
                                             validation_steps=len(val_generator),
                                             verbose=1,
-                                            workers=12,
+                                            workers=10,
                                             use_multiprocessing=True,
                                             max_queue_size=64,
                                             callbacks=[checkpointer])
