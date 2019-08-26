@@ -32,7 +32,8 @@ z_dim = 256  # 隐变量维度
 # beta = 1.5  # 局部互信息的loss比重
 # gamma = 0.01  # 先验分布的loss比重
 
-alpha, beta, gamma = 0.35, 1.35, 0.1
+# alpha, beta, gamma = 0.35, 1.35, 0.1
+alpha, beta, gamma = 0, 0, 1
 # alpha, beta, gamma = 0.35, 1.35, 0.1
 # mode = "load"
 mode = "gen"
